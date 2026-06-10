@@ -138,12 +138,11 @@ class VideoGeneratorAgnesAPI:
                 best = (nf, fr)
         return best or DURATION_PRESETS[5]
 
-    async def _poll_task(self, task_id: str, timeout: int = 600, interval: int = 15) -> dict:
-        """Poll video task until completed or failed."""
-        deadline = time.time() + timeout
+    async def _poll_task(self, task_id: str, interval: int = 15) -> dict:
+        """Poll video task until completed or failed. No timeout — Agnes video generation can be slow."""
         last_status = ""
         poll_count = 0
-        while time.time() < deadline:
+        while True:
             try:
                 resp = requests.get(
                     f"{BASE_URL}/videos/{task_id}",
@@ -173,8 +172,6 @@ class VideoGeneratorAgnesAPI:
                 logger.warning(f"[Agnes Video] Poll error: {e}")
 
             await asyncio.sleep(interval)
-
-        raise TimeoutError(f"Video task {task_id} timed out after {timeout}s")
 
     def _submit_with_retry(self, payload: dict, mode_desc: str) -> str:
         """Submit a video generation task with retry logic for transient errors.

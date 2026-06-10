@@ -32,13 +32,27 @@ source .venv/bin/activate
 
 ### 3. 设置 API Key
 
+三种方式（按优先级取第一个可用的）：
+
+**方式 A — `.api_key` 文件（推荐，`start.sh` 默认使用）：**
+
+```bash
+echo "your-agnes-api-key" > .api_key
+```
+
+该文件已加入 gitignore，不会提交到仓库。
+
+**方式 B — 环境变量：**
+
 ```bash
 export AGNES_API_KEY="your-agnes-api-key"
 ```
 
-或编辑 `configs/idea2video.yaml`。
+**方式 C — 配置文件：**
 
-也可以直接编辑 `start.sh` 替换内置 API Key。
+编辑 `configs/idea2video.yaml`，设置 `api_key` 字段。
+
+> `run_creative.py` 的解析顺序：命令行 `-k` → 环境变量 → 配置文件。
 
 ### 4. 运行
 

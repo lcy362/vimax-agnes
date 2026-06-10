@@ -32,13 +32,27 @@ source .venv/bin/activate
 
 ### 3. Set API Key
 
+Three options (the first one found wins):
+
+**Option A — `.api_key` file (recommended, used by `start.sh`):**
+
+```bash
+echo "your-agnes-api-key" > .api_key
+```
+
+This file is gitignored — safe for local use.
+
+**Option B — environment variable:**
+
 ```bash
 export AGNES_API_KEY="your-agnes-api-key"
 ```
 
-Or edit `configs/idea2video.yaml`.
+**Option C — config file:**
 
-Alternatively, edit `start.sh` and replace the placeholder key directly.
+Edit `configs/idea2video.yaml` and set the `api_key` field.
+
+> `run_creative.py` resolves the key in order: CLI `-k` → env var → config file.
 
 ### 4. Run
 

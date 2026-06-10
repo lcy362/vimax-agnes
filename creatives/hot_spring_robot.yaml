@@ -1,0 +1,26 @@
+# 温泉机器人创意配置
+# 用法：python main_idea2video.py creatives/hot_spring_robot.yaml
+
+# 创意名称（用于标识和输出目录命名）
+name: "hot_spring_robot"
+
+# 创意描述
+idea: |
+  温泉机器人之旅：一个可爱的机器人来到山间温泉度假村，先是在温泉池边好奇地观察周围的自然环境，然后小心翼翼地进入温暖的泉水中享受温泉浴，最后在雾气缭绕中摆出各种可爱的姿势，展示科技与自然的和谐共处
+
+# 用户要求/约束
+user_requirement: |
+  3个场景，每个场景10秒，温馨治愈风格，竖屏拍摄，色彩柔和
+
+# 视觉风格
+style: "温馨治愈动漫风格"
+
+# 参考图（可选，空字符串表示自动生成角色参考图）
+reference_image: ""
+
+# 场景串联模式：none / ti2vid / keyframes
+chaining_mode: "keyframes"
+
+# 视频尺寸（竖屏 768x1152）
+video_width: 768
+video_height: 1152

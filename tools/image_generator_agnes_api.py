@@ -78,6 +78,7 @@ class ImageGeneratorAgnesAPI:
                 extra_body["image"] = resolved
             payload["extra_body"] = extra_body
 
+        print(f"  🖼️ 正在生成图片...", flush=True)
         logger.info(f"[Agnes Image] Generating ({'i2i' if use_i2i else 't2i'}): {prompt[:80]}...")
 
         try:
@@ -117,4 +118,5 @@ class ImageGeneratorAgnesAPI:
             raise RuntimeError("Agnes image: no URL or base64 in response")
 
         logger.info(f"[Agnes Image] Done: {url[:80]}...")
+        print(f"  ✅ 图片生成完成", flush=True)
         return ImageOutput(fmt="url", ext="png", data=url)

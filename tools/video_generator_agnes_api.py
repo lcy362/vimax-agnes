@@ -142,6 +142,7 @@ class VideoGeneratorAgnesAPI:
         """Poll video task until completed or failed."""
         deadline = time.time() + timeout
         last_status = ""
+        poll_count = 0
         while time.time() < deadline:
             try:
                 resp = requests.get(
@@ -153,10 +154,14 @@ class VideoGeneratorAgnesAPI:
                 result = resp.json()
                 status = result.get("status", "")
                 progress = result.get("progress", 0)
+                poll_count += 1
 
                 if status != last_status:
                     logger.info(f"[Agnes Video] Task {task_id[:16]}... status={status} progress={progress}%")
                     last_status = status
+
+                if poll_count % 3 == 0:
+                    print(f"  ⏳ 视频生成中... {status} {progress}%", flush=True)
 
                 if status in ("completed", "COMPLETED"):
                     return result
@@ -200,7 +205,7 @@ class VideoGeneratorAgnesAPI:
                         f"[Agnes Video] 429 rate limit on {mode_desc}, "
                         f"retry {attempt+1}/{self.max_retries} in {delay:.0f}s..."
                     )
-                    await asyncio.sleep(delay) if False else time.sleep(delay)
+                    time.sleep(delay)
                     continue
 
                 # Server error — wait and retry

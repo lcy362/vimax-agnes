@@ -84,9 +84,11 @@ hair, distinguishing features, color palette) to enable consistent image generat
 {style}
 </style>
 """
+        print(f"📖 正在生成故事...", flush=True)
         logger.info("[Screenwriter] Developing story...")
         story = self._chat(system_prompt, user_prompt)
         logger.info(f"[Screenwriter] Story developed: {len(story)} chars")
+        print(f"✅ 故事生成完成", flush=True)
         return story
 
     def write_script(self, story: str, user_requirement: str, style: str) -> List[str]:
@@ -133,10 +135,12 @@ lighting direction, color grading, particle effects, weather.
 {style}
 </style>
 """
+        print(f"📝 正在编写脚本...", flush=True)
         logger.info("[Screenwriter] Writing script (visual prompts for video generation)...")
         result = self._chat_json(system_prompt, user_prompt)
         scenes = result.get("scenes", [])
         logger.info(f"[Screenwriter] Script written: {len(scenes)} scenes")
+        print(f"✅ 脚本完成，共 {len(scenes)} 个场景", flush=True)
         return scenes
 
     def extract_character_description(self, story: str, style: str) -> str:
@@ -232,10 +236,12 @@ across ALL end frames — only the pose, expression, and environment change.
 
 {scenes_text}
 """
+        print(f"🎬 正在生成关键帧提示词...", flush=True)
         logger.info("[Screenwriter] Generating end frame prompts for keyframes mode...")
         result = self._chat_json(system_prompt, user_prompt)
         end_frames = result.get("end_frames", [])
         logger.info(f"[Screenwriter] Generated {len(end_frames)} end frame prompts")
+        print(f"✅ 关键帧提示词完成，共 {len(end_frames)} 个", flush=True)
         return end_frames
 
     def design_shots_for_scene(self, scene_text: str, style: str, max_shots: int = 5) -> list:

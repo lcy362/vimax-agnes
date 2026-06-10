@@ -1,0 +1,26 @@
+# 唱歌跳舞创意配置
+# 用法：python main_idea2video.py creatives/singing_dancing.yaml
+
+# 创意名称（用于标识和输出目录命名）
+name: "singing_dancing"
+
+# 创意描述
+idea: |
+  海边跳舞：一位美丽的亚洲女孩在海边，先是从水里走上岸，然后整理自己散开的秀发，然后伸了个懒腰对着镜头露出甜美的笑容，最后慵懒的躺在沙滩上结束
+
+# 用户要求/约束
+user_requirement: |
+  4个场景，每个场景8秒，电影质感，MV风格，竖屏拍摄
+
+# 视觉风格
+style: "电影质感MV风格"
+
+# 参考图（可选，空字符串表示自动生成角色参考图）
+reference_image: ""
+
+# 场景串联模式：none / ti2vid / keyframes
+chaining_mode: "keyframes"
+
+# 视频尺寸（竖屏 768x1152）
+video_width: 768
+video_height: 1152

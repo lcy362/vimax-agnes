@@ -15,6 +15,12 @@ English | [中文](zh.md)
 - **Cache System**: Intermediate results are cached — re-run only generates missing parts
 - **Progress Feedback**: Real-time Chinese progress indicators with file-logging support
 
+## Example
+
+🎬 **Growth Journey** — a girl from newborn to age 6, 8 scenes generated from one start frame and per-scene end frames:
+
+[v.douyin.com/L4F6KdGnD6U/](https://v.douyin.com/L4F6KdGnD6U/)
+
 ## Quick Start
 
 ### 1. Requirements

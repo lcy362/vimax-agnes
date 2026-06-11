@@ -46,7 +46,6 @@ DEFAULT_USER_REQUIREMENT = """
 """
 
 DEFAULT_STYLE = "电影质感MV风格"
-DEFAULT_REFERENCE_IMAGE = "/home/z/my-project/upload/weixin-image.jpg"
 DEFAULT_CHAINING_MODE = "keyframes"
 DEFAULT_VIDEO_WIDTH = 768
 DEFAULT_VIDEO_HEIGHT = 1152
@@ -215,7 +214,7 @@ async def main():
         idea = DEFAULT_IDEA
         user_requirement = DEFAULT_USER_REQUIREMENT
         style = DEFAULT_STYLE
-        reference_image = DEFAULT_REFERENCE_IMAGE
+        reference_image = ""
         chaining_mode = DEFAULT_CHAINING_MODE
         video_width = DEFAULT_VIDEO_WIDTH
         video_height = DEFAULT_VIDEO_HEIGHT

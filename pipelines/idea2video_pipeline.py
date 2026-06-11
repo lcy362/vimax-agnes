@@ -357,6 +357,18 @@ class Idea2VideoPipeline:
         vw = video_width or self.video_width
         vh = video_height or self.video_height
 
+        # ── Step 0: Analyze end_frame_images if provided ──
+        image_context = ""
+        if end_frame_images:
+            # Only act on valid entries (non-empty, existing local files or URLs)
+            valid_images = [
+                p for p in end_frame_images
+                if p and (p.startswith(("http://", "https://")) or os.path.exists(p))
+            ]
+            if valid_images:
+                image_context = self.screenwriter.describe_images(valid_images)
+                print(f"\n📸 图片内容分析:\n{image_context[:300]}...\n")
+
         # ── Step 1: Develop Story ──
         story_path = os.path.join(self.working_dir, "story.txt")
         if os.path.exists(story_path):
@@ -364,7 +376,7 @@ class Idea2VideoPipeline:
                 story = f.read()
             logger.info("Story loaded from cache.")
         else:
-            story = self.screenwriter.develop_story(idea, user_requirement, style)
+            story = self.screenwriter.develop_story(idea, user_requirement, style, image_context)
             with open(story_path, "w") as f:
                 f.write(story)
             logger.info(f"Story saved to {story_path}")

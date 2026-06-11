@@ -1,7 +1,10 @@
 """Screenwriter agent — develops story and writes scene scripts using Agnes chat API."""
 
+import base64
 import json
 import logging
+import mimetypes
+import os
 import requests
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -53,8 +56,103 @@ class Screenwriter:
                 content = content[:-3]
         return json.loads(content)
 
-    def develop_story(self, idea: str, user_requirement: str, style: str) -> str:
-        """Expand an idea into a full story."""
+    def _image_to_b64_uri(self, path: str) -> str:
+        """Convert a local image file to base64 data URI."""
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        mime = mimetypes.guess_type(path)[0] or "image/png"
+        return f"data:{mime};base64,{b64}"
+
+    def _chat_multimodal(self, system_prompt: str, text_prompt: str, image_paths: List[str]) -> str:
+        """Call Agnes chat API with images and return text content.
+
+        Uses multimodal message format to send images alongside text.
+        Falls back to text-only if no images are provided.
+        """
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Build user message with text + images
+        user_content = [{"type": "text", "text": text_prompt}]
+        for img_path in image_paths:
+            if img_path.startswith(("http://", "https://")):
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": img_path},
+                })
+            elif os.path.exists(img_path):
+                b64_uri = self._image_to_b64_uri(img_path)
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": b64_uri},
+                })
+        messages.append({"role": "user", "content": user_content})
+
+        resp = requests.post(
+            f"{BASE_URL}/chat/completions",
+            headers=self.headers,
+            json={
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 4096,
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"]
+
+    def describe_images(self, image_paths: List[str]) -> str:
+        """Describe a sequence of images in detail — what's happening, who is in them, the style, colors, mood.
+
+        Returns a single narrative text that ties the images together, suitable
+        for feeding into story development.
+
+        Args:
+            image_paths: List of local file paths or URLs (e.g. end_frame_images).
+
+        Returns:
+            A paragraph describing the image content in natural language.
+        """
+        if not image_paths:
+            return ""
+
+        system_prompt = """\
+You are a visual analyst. Look at these images in order and describe them as a \
+continuous narrative. For each image, note:
+
+- Who or what is in the image (character appearance, body type, clothing, pose)
+- The environment / setting (indoor, outdoor, weather, time of day)
+- Color palette and lighting (warm/cool, bright/dim, time of day)
+- Art style (realistic, anime, cartoon, illustration, etc.)
+- Any emotional tone or mood conveyed
+- What action or moment is captured (static pose, mid-action, etc.)
+- How the images relate to each other as a progression
+
+Write 3-5 sentences per image, then 1-2 sentences summarizing the overall \
+visual story these images tell. Use descriptive, visual language — as if you \
+were dictating to an AI video generator. Output as plain text, no JSON, no \
+markdown formatting. Write in the same language the images suggest (Chinese \
+if the content appears Chinese, English otherwise). Do NOT mention \
+"the image shows" or "in this image" — just describe the content directly.
+"""
+        user_text = f"Describe these {len(image_paths)} images in sequence."
+
+        print(f"🔍 正在分析 {len(image_paths)} 张图片内容...", flush=True)
+        logger.info(f"[Screenwriter] Describing {len(image_paths)} images via multimodal chat...")
+        descriptions = self._chat_multimodal(system_prompt, user_text, image_paths)
+        logger.info(f"[Screenwriter] Image descriptions: {len(descriptions)} chars")
+        print(f"✅ 图片内容分析完成", flush=True)
+        return descriptions
+
+    def develop_story(self, idea: str, user_requirement: str, style: str, image_context: str = "") -> str:
+        """Expand an idea into a full story.
+
+        Args:
+            image_context: Optional text describing images that accompany the idea.
+                When provided, the story will be grounded in the visual content of
+                these images rather than purely free-form.
+        """
         system_prompt = """\
 You are a seasoned creative story generation expert. You expand ideas into \
 well-structured stories with clear scenes, characters, and dialogue.
@@ -84,8 +182,18 @@ hair, distinguishing features, color palette) to enable consistent image generat
 {style}
 </style>
 """
+        if image_context:
+            user_prompt += f"""
+<image_context>
+The following describes actual images that will be used as keyframes in the video.
+The story MUST align with the visual content described below — use the same
+characters, settings, colors, and mood.
+
+{image_context}
+</image_context>
+"""
         print(f"📖 正在生成故事...", flush=True)
-        logger.info("[Screenwriter] Developing story...")
+        logger.info("[Screenwriter] Developing story..." + (" (with image context)" if image_context else ""))
         story = self._chat(system_prompt, user_prompt)
         logger.info(f"[Screenwriter] Story developed: {len(story)} chars")
         print(f"✅ 故事生成完成", flush=True)

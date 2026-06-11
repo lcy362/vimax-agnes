@@ -102,15 +102,20 @@ class Screenwriter:
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
-    def describe_images(self, image_paths: List[str]) -> str:
+    def describe_images(self, image_paths: List[str], cache_dir: str = "") -> str:
         """Describe a sequence of images one by one, then tie them together.
 
         Each image is analyzed individually via multimodal chat, with progress
         output after each completion. Results are concatenated into a single
         narrative suitable for feeding into story development.
 
+        Supports incremental caching: if cache_dir is provided, partial results
+        are saved after each image. On restart, already-analyzed images are
+        skipped.
+
         Args:
-            image_paths: List of local file paths or URLs (e.g. end_frame_images).
+            image_paths: List of local file paths or URLs.
+            cache_dir: Optional directory for incremental cache file.
 
         Returns:
             A paragraph describing the image content in natural language.
@@ -128,16 +133,42 @@ otherwise.
 """
 
         total = len(image_paths)
+
+        # ── Load incremental cache if available ──
+        cached_descriptions = {}
+        cache_file = ""
+        if cache_dir:
+            cache_file = os.path.join(cache_dir, "image_analysis.json")
+            if os.path.exists(cache_file):
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cached = json.load(f)
+                    if cached.get("image_paths") == image_paths:
+                        cached_descriptions = cached.get("descriptions", {})
+                        if cached_descriptions:
+                            print(f"📦 从缓存恢复，已完成 {len(cached_descriptions)}/{total} 张", flush=True)
+                            logger.info(f"[Screenwriter] Loaded {len(cached_descriptions)} cached descriptions")
+                except Exception:
+                    pass
+
         print(f"🔍 逐张分析 {total} 张图片...", flush=True)
         logger.info(f"[Screenwriter] Describing {total} images one by one...")
 
         descriptions = []
         for i, img_path in enumerate(image_paths):
-            # Label: first is starting frame, rest are end frames
             if i == 0:
-                label = f"起始帧"
+                label = "起始帧"
             else:
                 label = f"尾帧 {i - 1}"
+
+            # Check if this image is already cached
+            cache_key = str(i)  # use index as key since paths may be the same file
+            if cache_key in cached_descriptions:
+                desc = cached_descriptions[cache_key]
+                descriptions.append(f"[{label}] {desc.strip()}")
+                display = os.path.basename(img_path) if os.path.exists(img_path) else img_path[:40]
+                print(f"  [{i+1}/{total}] 📦 {label}: {display} (缓存)", flush=True)
+                continue
 
             display = os.path.basename(img_path) if os.path.exists(img_path) else img_path[:40]
             print(f"  [{i+1}/{total}] 正在分析 {label}: {display} ...", flush=True)
@@ -145,6 +176,18 @@ otherwise.
             desc = self._describe_with_retry(single_prompt, img_path, label)
             descriptions.append(f"[{label}] {desc.strip()}")
             print(f"  [{i+1}/{total}] ✅ {label} 完成 ({len(desc)} 字符)", flush=True)
+
+            # ── Save incremental cache ──
+            if cache_file:
+                cached_descriptions[cache_key] = desc.strip()
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "image_paths": image_paths,
+                            "descriptions": cached_descriptions,
+                        }, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
 
         combined = "\n\n".join(descriptions)
         print(f"✅ 全部图片分析完成，共 {len(combined)} 字符", flush=True)

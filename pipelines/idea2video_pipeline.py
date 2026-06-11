@@ -371,19 +371,42 @@ class Idea2VideoPipeline:
                     images_to_analyze.append(p)
 
         if images_to_analyze:
-            print(f"\n{'='*60}")
-            print(f"🔍 Step 0: 图片内容分析")
-            print(f"{'='*60}")
-            print(f"   图片数量: {len(images_to_analyze)} 张")
-            for i, img in enumerate(images_to_analyze):
-                label = "起始帧" if i == 0 else f"尾帧 {i-1}"
-                # Show filename only for local paths, full for short URLs
-                display = os.path.basename(img) if os.path.exists(img) else img[:60]
-                print(f"   [{label}] {display}")
-            print()
-            image_context = self.screenwriter.describe_images(images_to_analyze)
-            print(f"\n📸 分析结果 ({len(image_context)} 字符):")
-            print(f"   {image_context[:250]}...")
+            # ── Check cache ──
+            cache_path = os.path.join(self.working_dir, "image_analysis.json")
+            cached = None
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, "r") as f:
+                        cached = json.load(f)
+                    if cached.get("image_paths") == images_to_analyze:
+                        image_context = cached.get("image_context", "")
+                        print(f"\n📦 从缓存恢复图片分析结果 ({len(image_context)} 字符)", flush=True)
+                        logger.info("Image analysis loaded from cache.")
+                    else:
+                        cached = None  # paths changed, invalidate
+                except Exception:
+                    cached = None
+
+            if cached is None:
+                print(f"\n{'='*60}")
+                print(f"🔍 Step 0: 图片内容分析")
+                print(f"{'='*60}")
+                print(f"   图片数量: {len(images_to_analyze)} 张")
+                for i, img in enumerate(images_to_analyze):
+                    label = "起始帧" if i == 0 else f"尾帧 {i-1}"
+                    display = os.path.basename(img) if os.path.exists(img) else img[:60]
+                    print(f"   [{label}] {display}")
+                print()
+                image_context = self.screenwriter.describe_images(images_to_analyze)
+                print(f"\n📸 分析结果 ({len(image_context)} 字符):")
+                print(f"   {image_context[:250]}...")
+                # Save to cache
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "image_paths": images_to_analyze,
+                        "image_context": image_context,
+                    }, f, ensure_ascii=False, indent=2)
+                logger.info(f"Image analysis cached to {cache_path}")
             print()
 
         # ── Step 1: Develop Story ──

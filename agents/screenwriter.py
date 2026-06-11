@@ -103,10 +103,11 @@ class Screenwriter:
         return data["choices"][0]["message"]["content"]
 
     def describe_images(self, image_paths: List[str]) -> str:
-        """Describe a sequence of images in detail — what's happening, who is in them, the style, colors, mood.
+        """Describe a sequence of images one by one, then tie them together.
 
-        Returns a single narrative text that ties the images together, suitable
-        for feeding into story development.
+        Each image is analyzed individually via multimodal chat, with progress
+        output after each completion. Results are concatenated into a single
+        narrative suitable for feeding into story development.
 
         Args:
             image_paths: List of local file paths or URLs (e.g. end_frame_images).
@@ -117,37 +118,67 @@ class Screenwriter:
         if not image_paths:
             return ""
 
-        system_prompt = """\
-You are a visual analyst. Look at these images in order — the first image is \
-the STARTING FRAME (scene 0 first frame), and the remaining images are END FRAMES \
-for scenes 0, 1, 2... in sequence.
-
-For each image, note:
-
-- Who or what is in the image (character appearance, body type, clothing, pose)
-- The environment / setting (indoor, outdoor, weather, time of day)
-- Color palette and lighting (warm/cool, bright/dim, time of day)
-- Art style (realistic, anime, cartoon, illustration, etc.)
-- Any emotional tone or mood conveyed
-- What action or moment is captured (static pose, mid-action, etc.)
-- How the images relate to each other as a progression from start to end
-
-Write 3-5 sentences per image, then 1-2 sentences summarizing the overall \
-visual story these images tell. Use descriptive, visual language — as if you \
-were dictating to an AI video generator. Output as plain text, no JSON, no \
-markdown formatting. Write in Chinese if the content appears Chinese, English \
-otherwise. Do NOT mention "the image shows" or "in this image" — just describe \
-the content directly.
+        single_prompt = """\
+Describe this image in rich visual detail. Note the character(s), their \
+appearance (clothing, body type, hair, pose), the environment, colors and \
+lighting, art style, and mood. Write 3-5 sentences in natural language — as if \
+dictating to a story writer. Do NOT say "the image shows" — just describe what \
+you see directly. Write in Chinese if the content appears Chinese, English \
+otherwise.
 """
-        user_text = f"Describe these {len(image_paths)} images in sequence."
 
-        print(f"🔍 正在分析 {len(image_paths)} 张图片内容...", flush=True)
-        logger.info(f"[Screenwriter] Describing {len(image_paths)} images via multimodal chat...")
-        print(f"⏳ 调用多模态模型分析中（图片较多时可能较慢，请耐心等待）...", flush=True)
-        descriptions = self._chat_multimodal(system_prompt, user_text, image_paths)
-        logger.info(f"[Screenwriter] Image descriptions: {len(descriptions)} chars")
-        print(f"✅ 图片内容分析完成 ({len(descriptions)} 字符)", flush=True)
-        return descriptions
+        total = len(image_paths)
+        print(f"🔍 逐张分析 {total} 张图片...", flush=True)
+        logger.info(f"[Screenwriter] Describing {total} images one by one...")
+
+        descriptions = []
+        for i, img_path in enumerate(image_paths):
+            # Label: first is starting frame, rest are end frames
+            if i == 0:
+                label = f"起始帧"
+            else:
+                label = f"尾帧 {i - 1}"
+
+            display = os.path.basename(img_path) if os.path.exists(img_path) else img_path[:40]
+            print(f"  [{i+1}/{total}] 正在分析 {label}: {display} ...", flush=True)
+
+            desc = self._describe_with_retry(single_prompt, img_path, label)
+            descriptions.append(f"[{label}] {desc.strip()}")
+            print(f"  [{i+1}/{total}] ✅ {label} 完成 ({len(desc)} 字符)", flush=True)
+
+        combined = "\n\n".join(descriptions)
+        print(f"✅ 全部图片分析完成，共 {len(combined)} 字符", flush=True)
+        logger.info(f"[Screenwriter] All {total} images described: {len(combined)} chars")
+        return combined
+
+    def _describe_with_retry(self, prompt: str, img_path: str, label: str, max_retries: int = 3) -> str:
+        """Describe a single image with retry on failure.
+
+        Args:
+            prompt: Analysis prompt.
+            img_path: Image path or URL.
+            label: Human-readable label for logging.
+            max_retries: Maximum number of attempts (including first).
+
+        Returns:
+            Image description string, or a placeholder on total failure.
+        """
+        for attempt in range(max_retries):
+            try:
+                return self._chat_multimodal(prompt, "Describe this image.", [img_path])
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    delay = 15 * (attempt + 1)
+                    logger.warning(
+                        f"[Screenwriter] {label} attempt {attempt+1}/{max_retries} failed: {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    print(f"    ⚠️  {label} 第 {attempt+1} 次失败，{delay}s 后重试...", flush=True)
+                    import time as _time
+                    _time.sleep(delay)
+                else:
+                    logger.error(f"[Screenwriter] {label} failed after {max_retries} attempts: {e}")
+                    return f"(分析失败: {str(e)[:100]})"
 
     def develop_story(self, idea: str, user_requirement: str, style: str, image_context: str = "") -> str:
         """Expand an idea into a full story.

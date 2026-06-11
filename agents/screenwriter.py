@@ -118,8 +118,11 @@ class Screenwriter:
             return ""
 
         system_prompt = """\
-You are a visual analyst. Look at these images in order and describe them as a \
-continuous narrative. For each image, note:
+You are a visual analyst. Look at these images in order — the first image is \
+the STARTING FRAME (scene 0 first frame), and the remaining images are END FRAMES \
+for scenes 0, 1, 2... in sequence.
+
+For each image, note:
 
 - Who or what is in the image (character appearance, body type, clothing, pose)
 - The environment / setting (indoor, outdoor, weather, time of day)
@@ -127,14 +130,14 @@ continuous narrative. For each image, note:
 - Art style (realistic, anime, cartoon, illustration, etc.)
 - Any emotional tone or mood conveyed
 - What action or moment is captured (static pose, mid-action, etc.)
-- How the images relate to each other as a progression
+- How the images relate to each other as a progression from start to end
 
 Write 3-5 sentences per image, then 1-2 sentences summarizing the overall \
 visual story these images tell. Use descriptive, visual language — as if you \
 were dictating to an AI video generator. Output as plain text, no JSON, no \
-markdown formatting. Write in the same language the images suggest (Chinese \
-if the content appears Chinese, English otherwise). Do NOT mention \
-"the image shows" or "in this image" — just describe the content directly.
+markdown formatting. Write in Chinese if the content appears Chinese, English \
+otherwise. Do NOT mention "the image shows" or "in this image" — just describe \
+the content directly.
 """
         user_text = f"Describe these {len(image_paths)} images in sequence."
 

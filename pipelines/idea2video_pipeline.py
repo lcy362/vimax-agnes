@@ -357,17 +357,23 @@ class Idea2VideoPipeline:
         vw = video_width or self.video_width
         vh = video_height or self.video_height
 
-        # ── Step 0: Analyze end_frame_images if provided ──
+        # ── Step 0: Analyze provided images (reference + end_frames) ──
         image_context = ""
+        # Collect all user-provided images: reference_image first, then end_frame_images
+        images_to_analyze = []
+        if reference_image:
+            ref_valid = reference_image.startswith(("http://", "https://")) or os.path.exists(reference_image)
+            if ref_valid:
+                images_to_analyze.append(reference_image)
         if end_frame_images:
-            # Only act on valid entries (non-empty, existing local files or URLs)
-            valid_images = [
-                p for p in end_frame_images
-                if p and (p.startswith(("http://", "https://")) or os.path.exists(p))
-            ]
-            if valid_images:
-                image_context = self.screenwriter.describe_images(valid_images)
-                print(f"\n📸 图片内容分析:\n{image_context[:300]}...\n")
+            for p in end_frame_images:
+                if p and (p.startswith(("http://", "https://")) or os.path.exists(p)):
+                    images_to_analyze.append(p)
+
+        if images_to_analyze:
+            print(f"\n🔍 正在分析 {len(images_to_analyze)} 张图片（含起始帧+尾帧）...", flush=True)
+            image_context = self.screenwriter.describe_images(images_to_analyze)
+            print(f"📸 图片内容分析:\n{image_context[:300]}...\n")
 
         # ── Step 1: Develop Story ──
         story_path = os.path.join(self.working_dir, "story.txt")

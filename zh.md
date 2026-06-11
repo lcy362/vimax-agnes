@@ -1,174 +1,175 @@
 # ViMax-Agnes
 
-**基于 Agnes AI 的智能视频生成工具**
-
-> 基于 [ViMax](https://github.com/HKUDS/ViMax) 轻量改造，用 Agnes AI API 替代 Google Veo/Gemini 进行图像和视频生成。
+**Agentic 视频生成 —— 从创意到成片，完全由 Agnes AI 驱动。**
 
 [English](README.md) | 中文
 
-## 功能特性
+---
 
-- **创意即视频**：只需提供创意想法、风格和简单需求，即可生成完整视频
-- **人物一致性**：先生成角色参考图，再通过 `ti2vid` 模式在所有场景中复用
-- **全链路 Agnes 集成**：对话（故事/脚本）、图像生成、视频生成全部使用 Agnes AI
-- **智能流水线**：故事 → 角色参考 → 脚本 → 场景视频 → 最终视频
-- **缓存系统**：中间结果自动缓存，重复运行只生成缺失部分
-- **进度反馈**：实时中文进度提示，支持文件日志
+## 示例视频
 
-## 示例
+> 暗黑童话 —— 《青蛙王子》，5 个场景，关键帧串联，全自动生成。
 
-🎬 **成长旅程** — 小女孩从出生到 6 岁，一张起始帧 + 每场景尾帧，生成 8 个场景：
+[![观看演示视频](https://img.shields.io/badge/▶%20观看演示-FF0050?style=for-the-badge&logo=tiktok&logoColor=white)](https://v.douyin.com/L4F6KdGnD6U/)
 
-[v.douyin.com/L4F6KdGnD6U/](https://v.douyin.com/L4F6KdGnD6U/)
+<sub>点击在抖音观看。更多示例：[女孩扣篮](https://v.douyin.com/L4F6KdGnD6U/) · [海边舞蹈](https://v.douyin.com/L4F6KdGnD6U/)</sub>
+
+---
+
+## 这是什么
+
+ViMax-Agnes 是一个轻量级 Agentic 视频生成框架，能把一段**文字创意**自动变成一个**完整的多场景视频** —— 全流程无需人工干预。
+
+只需提供创意描述、风格偏好和简单约束，系统会自动完成：
+
+1. **创作故事** — 生成有角色、有情节的完整故事
+2. **生成角色参考图** — 锁定视觉一致性
+3. **拆分场景脚本** — 将故事转化为电影级视觉 prompt
+4. **逐场景生成视频** — 每个场景保持角色一致
+5. **拼接成片** — 输出最终视频
+
+全部由 [Agnes AI](https://platform.agnes-ai.com) 单一 API 驱动（免费，无需信用卡）。
+
+## 核心功能
+
+**一条命令，创意变视频**
+写一个 YAML 文件描述创意，运行 `./start.sh <名称>`，等待出片。故事、图片、视频、拼接 —— 全流程自动执行。
+
+**跨场景角色一致性**
+两阶段方案锁定视觉身份：先生成（或你提供）一张角色参考图，然后每个场景视频都以它为起始帧通过 `ti2vid` 模式生成，保持外貌、服装和风格统一。
+
+**三种场景串联模式**
+- `none` — 每个场景独立生成，共用同一张参考图。速度最快。
+- `keyframes` — 顺序生成，AI 计算首帧 + 尾帧关键帧，场景过渡最平滑。**（推荐）**
+- `ti2vid` — 顺序生成，通过 img2img 生成场景间的过渡帧。
+
+**智能缓存与断点续跑**
+每个中间结果（故事、脚本、参考图、场景视频）都会持久化到磁盘。重新运行时只生成缺失部分 —— 天然支持崩溃恢复。
+
+**多模态图片分析**
+提供自己的参考图或自定义尾帧图片，系统会通过多模态 LLM 分析图片内容，将视觉信息融入故事和生成 prompt。
+
+**实时进度反馈**
+中文进度提示 + emoji 标记，支持文件日志，适合后台运行。
 
 ## 快速开始
 
-### 1. 环境要求
+### 环境要求
 
 - Python 3.10+
-- Agnes AI API Key（[在此注册](https://platform.agnes-ai.com)）
+- Agnes AI API Key — [免费注册](https://platform.agnes-ai.com)
 
-### 2. 安装依赖
+### 安装
 
 ```bash
+git clone https://github.com/lcy362/vimax-agnes.git
+cd vimax-agnes
 python3 -m venv .venv
-source .venv/bin/activate
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 3. 设置 API Key
+### 设置 API Key
 
-三种方式（按优先级取第一个可用的）：
-
-**方式 A — `.api_key` 文件（推荐，`start.sh` 默认使用）：**
+在项目根目录创建 `.api_key` 文件：
 
 ```bash
-echo "your-agnes-api-key" > .api_key
+echo "你的Agnes API Key" > .api_key
 ```
 
-该文件已加入 gitignore，不会提交到仓库。
+> 其他方式：环境变量 `AGNES_API_KEY`，或编辑 `configs/idea2video.yaml`。
+> 优先级：命令行 `-k` 参数 > 环境变量 > 配置文件 > `.api_key` 文件。
 
-**方式 B — 环境变量：**
-
-```bash
-export AGNES_API_KEY="your-agnes-api-key"
-```
-
-**方式 C — 配置文件：**
-
-编辑 `configs/idea2video.yaml`，设置 `api_key` 字段。
-
-> `run_creative.py` 的解析顺序：命令行 `-k` → 环境变量 → 配置文件。
-
-### 4. 运行
+### 运行
 
 ```bash
 # 查看可用创意列表
 ./start.sh
 
 # 运行指定创意
-./start.sh <创意名称>
+./start.sh frog
 ```
 
-脚本会自动设置 API Key、使用虚拟环境、启动流水线。
+### 查看结果
 
-### 5. 查看视频
+- 最终视频：`.working_dir/<创意名称>/final_video.mp4`
+- 运行日志：`.working_dir/logs/`
 
-输出：`.working_dir/<创意名称>/final_video.mp4`
+## 创意配置
 
-日志：`.working_dir/logs/`
-
-## 创意配置（YAML）
-
-在 `creatives/` 目录下以 `.yaml` 文件定义创意：
+在 `creatives/` 目录下用 YAML 定义你的视频创意：
 
 ```yaml
-name: my_creative
-idea: "一个机器人在洒满阳光的工作室里学画画"
-user_requirement: "3-5 个场景，适合全年龄段"
-style: "Cartoon"
-chaining_mode: none          # "none" | "keyframes" | "ti2vid"
-video_width: 768
+name: "my_video"
+
+idea: |
+  一个机器人在洒满阳光的工作室里学画画，
+  逐渐创作出一幅融合科技与艺术的杰作。
+
+user_requirement: |
+  3个场景，每个场景10秒，电影质感
+
+style: "电影质感写实风格"
+
+chaining_mode: keyframes     # none | keyframes | ti2vid
+video_width: 768             # 竖屏 768x1152
 video_height: 1152
 reference_image: ""          # 可选：本地路径或 URL
-# end_frame_images:             # 可选：自定义每场景尾帧（本地文件自动 resize）
-#   - /path/to/scene0_end.png
+# end_frame_images:          # 可选：自定义每场景尾帧
+#   - /path/to/end_0.png
 ```
 
-> **自定义尾帧**：`end_frame_images` 为可选字段。提供时系统直接使用，不自动生成；
-> 本地文件会自动 resize 到视频尺寸；每场景对应一个路径/URL，超出部分自动回退生成。
+然后运行：`./start.sh my_video`
 
 ## 系统架构
 
 ```
-+------------------+
-|   你的创意       |
-| +（可选）        |
-| 参考图片         |
-+--------+--------+
-         |
-+-----------------+
-|   编剧模块       | <- Agnes Chat API (agnes-2.0-flash)
-|   故事 + 脚本    |
-+--------+--------+
-         |
-+------------------+
-| 角色参考图       | <- 用户提供，或通过
-|                  |    Agnes Image API (agnes-image-2.1-flash)
-+--------+--------+    从故事描述自动生成
-         |
-+-----------------+
-| 视频生成器       | <- Agnes Video API (agnes-video-v2.0)
-|  ti2vid 模式    |    每个场景使用同一参考图
-|  （逐场景）      |    作为首帧保持一致性
-+--------+--------+
-         |
-+-----------------+
-|  视频拼接        | <- moviepy
-|  最终成片        |
-+-----------------+
+creatives/*.yaml           ← 你的创意
+        │
+        ▼
+┌─────────────────┐
+│  run_creative.py │  ← 统一入口
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   编剧模块       │  Agnes Chat (agnes-2.0-flash)
+│   故事 + 脚本    │  → 故事、场景、尾帧 prompt
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   图片生成器     │  Agnes Image (agnes-image-2.1-flash)
+│   角色参考图     │  → 参考图、尾帧图片
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   视频生成器     │  Agnes Video (agnes-video-v2.0)
+│   逐场景视频     │  → t2v / ti2vid / keyframes
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   视频拼接       │  moviepy
+│   final_video   │
+└─────────────────┘
 ```
 
-## 流水线流程
+## 角色一致性原理
 
-1. **故事创作**：LLM 将创意扩展为结构化故事，包含详细的角色描述
-2. **角色参考图**：使用提供的参考图，或从故事描述自动生成
-3. **脚本编写**：LLM 将故事拆分为多个场景，包含对话和动作
-4. **场景视频**：每个场景使用参考图（ti2vid 模式）作为首帧生成视频
-5. **视频拼接**：所有场景视频拼接为最终成片
+1. **阶段一（t2i）** — 从故事的角色描述中生成一张角色参考图，也可以由你直接提供。
+2. **阶段二（ti2vid）** — 每个场景视频以该参考图作为起始帧生成。视频模型从同一视觉锚点出发进行动画化，保留角色设计、配色和构图。
 
-## 人物一致性
+> **提示**：卡通/风格化画风一致性效果最好。写实风格建议直接提供 `reference_image`。
 
-流水线通过两阶段方案保持人物一致性：
-
-**阶段1（t2i）**：每个场景根据独特文本生成首帧，但所有提示词共享相同的风格关键词（画风、色调、光照、角色设计），锁定视觉身份。
-
-**阶段2（ti2vid）**：首帧作为参考图传入视频模型。模型从该起始点进行动画化，保留角色设计、配色和构图。
-
-> **提示**：卡通/Q版风格一致性效果最好。写实风格建议始终提供显式 `reference_image`。
-
-## Agnes API 详情
-
-| 用途 | 接口 | 模型 |
-|------|------|------|
-| 对话（故事/脚本） | POST `/v1/chat/completions` | agnes-2.0-flash |
-| 角色参考图 | POST `/v1/images/generations` | agnes-image-2.1-flash |
-| 图片上传 | POST `/v1/images/generations` (img2img) | agnes-image-2.1-flash |
-| 场景视频 (ti2vid) | POST `/v1/videos` (image + mode=ti2vid) | agnes-video-v2.0 |
-| 任务轮询 | GET `/v1/videos/{task_id}` | - |
-
-### 时长配置
+## 配置
 
 编辑 `configs/idea2video.yaml`：
 
 ```yaml
 video_generator:
   init_args:
-    default_duration: 5  # 每场景秒数（5, 10, 15, 18, 20）
+    default_duration: 10  # 每场景秒数（5, 10, 15, 18, 20）
 ```
 
-| 时长 | num_frames | frame_rate |
-|------|-----------|------------|
+| 时长 | 帧数 | 帧率 |
+|------|------|------|
 | 5秒 | 121 | 24 |
 | 10秒 | 241 | 24 |
 | 15秒 | 361 | 24 |
@@ -179,37 +180,30 @@ video_generator:
 
 ```
 vimax-agnes/
-├── start.sh                     # 一键启动脚本
-├── run_creative.py              # 创意 YAML 统一入口
-├── main_idea2video.py           # 独立 idea2video 入口（编程式调用）
-├── run_full_pipeline.py         # 完整流水线（含关键帧串联）
-├── creatives/                   # 创意 YAML 配置文件
+├── start.sh                          # 一键启动脚本
+├── run_creative.py                   # 统一入口
+├── main_idea2video.py                # 编程式入口
+├── creatives/                        # 创意 YAML 配置
+│   ├── child.yaml
 │   ├── example.yaml
+│   ├── frog.yaml
+│   ├── girldunk.yaml
 │   ├── hot_spring_robot.yaml
 │   └── singing_dancing.yaml
-├── configs/
-│   └── idea2video.yaml          # API 与流水线配置
-├── agents/
-│   └── screenwriter.py          # LLM 驱动的故事/脚本生成
+├── configs/idea2video.yaml           # 系统配置
+├── agents/screenwriter.py            # LLM 编剧 Agent
 ├── tools/
-│   ├── image_generator_agnes_api.py  # Agnes 图像生成 (t2i + i2i)
-│   ├── video_generator_agnes_api.py  # Agnes 视频生成 (t2v, ti2vid, keyframes)
-│   ├── render_backend.py             # 基于配置的后端初始化
-│   └── protocols.py                  # 类型契约
-├── interfaces/
-│   ├── shot_description.py           # 镜头数据模型
-│   ├── image_output.py               # 图像输出容器
-│   └── video_output.py               # 视频输出容器
-├── pipelines/
-│   └── idea2video_pipeline.py        # 主编排流水线
-├── prompts/                           # 场景提示词 JSON 文件（历史）
+│   ├── image_generator_agnes_api.py  # 图片生成（t2i + i2i）
+│   └── video_generator_agnes_api.py  # 视频生成（t2v/ti2vid/keyframes）
+├── interfaces/                       # Pydantic 数据模型
+├── pipelines/idea2video_pipeline.py  # 核心编排流水线
 ├── requirements.txt
 └── LICENSE
 ```
 
 ## 致谢
 
-- [ViMax](https://github.com/HKUDS/ViMax) — 原始智能视频生成框架
+- [ViMax](https://github.com/HKUDS/ViMax) — 原始 Agentic 视频生成框架
 - [Agnes AI](https://platform.agnes-ai.com) — AI 生成 API
 
 ## 许可证

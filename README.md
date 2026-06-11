@@ -1,175 +1,175 @@
 # ViMax-Agnes
 
-**Agentic Video Generation powered entirely by Agnes AI.**
-
-> A lightweight adaptation of [ViMax](https://github.com/HKUDS/ViMax) that replaces Google Veo/Gemini with Agnes AI's API for image and video generation.
+**Agentic Video Generation — From Idea to Video, Powered Entirely by Agnes AI.**
 
 English | [中文](zh.md)
 
-## Features
+---
 
-- **Idea → Video**: Provide a creative idea, style, and simple requirements — get a complete video
-- **Character Consistency**: Generates a character reference image, then reuses it across all scenes via `ti2vid` mode
-- **Full Agnes Integration**: Uses Agnes AI for chat (story/script), image generation, and video generation
-- **Smart Pipeline**: Story → Character Reference → Script → Scene Videos → Final Video
-- **Cache System**: Intermediate results are cached — re-run only generates missing parts
-- **Progress Feedback**: Real-time Chinese progress indicators with file-logging support
+## Demo
 
-## Example
+> A dark-twist fairytale — *The Frog Prince*, 5 scenes, keyframes chaining, fully auto-generated.
 
-🎬 **The Frog Prince** — a dark-twist fairytale, 5 scenes generated with auto-generated keyframes:
+[![The Frog Prince — Demo Video](https://img.shields.io/badge/▶%20Watch%20Demo-FF0050?style=for-the-badge&logo=tiktok&logoColor=white)](https://v.douyin.com/L4F6KdGnD6U/)
 
-[v.douyin.com/L4F6KdGnD6U/](https://v.douyin.com/L4F6KdGnD6U/)
+<sub>Click to watch on Douyin. More examples: [Girl Dunk](https://v.douyin.com/L4F6KdGnD6U/) · [Beach Dance](https://v.douyin.com/L4F6KdGnD6U/)</sub>
+
+---
+
+## What It Does
+
+ViMax-Agnes is a lightweight agentic framework that turns a **text idea** into a **complete multi-scene video** — end to end, with no manual intervention.
+
+Give it a creative concept, a style preference, and a few constraints. It will:
+
+1. **Write a story** with detailed characters and plot
+2. **Generate a character reference image** for visual consistency
+3. **Break the story into scenes** with cinematic visual prompts
+4. **Produce a video per scene** with consistent characters
+5. **Stitch everything** into a final video
+
+All powered by a single API: [Agnes AI](https://platform.agnes-ai.com) (free, no credit card required).
+
+## Key Features
+
+**Idea → Video in One Command**
+Write a YAML file describing your idea, run `./start.sh <name>`, get a video. The entire pipeline — story, images, videos, concatenation — runs automatically.
+
+**Character Consistency Across Scenes**
+A two-stage approach locks visual identity: first, a character reference image is generated (or provided by you); then every scene video uses it as the starting frame via `ti2vid` mode, preserving appearance, clothing, and style.
+
+**Three Scene Chaining Modes**
+- `none` — Each scene is independent, sharing the same reference image. Fastest.
+- `keyframes` — Sequential generation with AI-computed first + last frame keyframes. Smoothest transitions. **(Recommended)**
+- `ti2vid` — Sequential generation with img2img transition frames between scenes.
+
+**Smart Caching & Resume**
+Every intermediate result (story, script, reference image, scene videos) is cached to disk. Re-running the pipeline only generates what's missing — crash recovery is built in.
+
+**Multimodal Image Analysis**
+Provide your own reference images or custom end-frame images per scene. The system analyzes them via multimodal LLM and weaves the visual content into the story and generation prompts.
+
+**Real-time Progress**
+Chinese progress indicators with emoji markers, plus full file-based logging for background runs.
 
 ## Quick Start
 
-### 1. Requirements
+### Prerequisites
 
 - Python 3.10+
-- Agnes AI API Key ([register here](https://platform.agnes-ai.com))
+- An Agnes AI API Key — [register free](https://platform.agnes-ai.com)
 
-### 2. Install
+### Install
 
 ```bash
+git clone https://github.com/lcy362/vimax-agnes.git
+cd vimax-agnes
 python3 -m venv .venv
-source .venv/bin/activate
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Set API Key
+### Set API Key
 
-Three options (the first one found wins):
-
-**Option A — `.api_key` file (recommended, used by `start.sh`):**
+Create a `.api_key` file in the project root:
 
 ```bash
 echo "your-agnes-api-key" > .api_key
 ```
 
-This file is gitignored — safe for local use.
+> Other options: environment variable `AGNES_API_KEY`, or edit `configs/idea2video.yaml`.
+> Priority: CLI `-k` flag > env var > config file > `.api_key` file.
 
-**Option B — environment variable:**
-
-```bash
-export AGNES_API_KEY="your-agnes-api-key"
-```
-
-**Option C — config file:**
-
-Edit `configs/idea2video.yaml` and set the `api_key` field.
-
-> `run_creative.py` resolves the key in order: CLI `-k` → env var → config file.
-
-### 4. Run
+### Run
 
 ```bash
 # List available creatives
 ./start.sh
 
 # Run a specific creative
-./start.sh <creative_name>
+./start.sh frog
 ```
 
-The script will automatically set the API key, use the virtual environment, and launch the pipeline.
+### Output
 
-### 5. Find Your Video
+- Final video: `.working_dir/<creative_name>/final_video.mp4`
+- Logs: `.working_dir/logs/`
 
-Output: `.working_dir/<creative_name>/final_video.mp4`
+## Creative Config
 
-Logs: `.working_dir/logs/`
-
-## Creative Configs (YAML)
-
-Place your creative definitions in `creatives/` as `.yaml` files:
+Define your video ideas as YAML files in `creatives/`:
 
 ```yaml
-name: my_creative
-idea: "A robot learns to paint in a sunlit studio"
-user_requirement: "3-5 scenes, suitable for all ages"
-style: "Cartoon"
-chaining_mode: none          # "none" | "keyframes" | "ti2vid"
-video_width: 768
+name: "my_video"
+
+idea: |
+  A robot learns to paint in a sunlit studio, gradually
+  creating a masterpiece that blends art and technology.
+
+user_requirement: |
+  3 scenes, 10 seconds each, cinematic quality
+
+style: "Cinematic realistic"
+
+chaining_mode: keyframes     # none | keyframes | ti2vid
+video_width: 768             # 768x1152 for portrait
 video_height: 1152
-reference_image: ""          # optional: local path or URL
-# end_frame_images:             # optional: custom end frame per scene (local files auto-resized)
-#   - /path/to/scene0_end.png
+reference_image: ""          # optional: path or URL
+# end_frame_images:          # optional: custom end frames per scene
+#   - /path/to/end_0.png
 ```
 
-> **Custom End Frames**: `end_frame_images` is optional. When provided, the system uses
-> your images directly instead of auto-generating. Local files are auto-resized to the
-> target video dimensions. One path/URL per scene; extra scenes fall back to auto-generation.
+Then run: `./start.sh my_video`
 
 ## Architecture
 
 ```
-+------------------+
-|   Your Idea     |
-| + (Optional)    |
-| Reference Image |
-+--------+--------+
-         |
-+-----------------+
-|  Screenwriter   | <- Agnes Chat API (agnes-2.0-flash)
-|  Story + Script |
-+--------+--------+
-         |
-+------------------+
-| Character Ref    | <- User-provided, or auto-generated
-| Image            |    via Agnes Image API (agnes-image-2.1-flash)
-+--------+--------+
-         |
-+-----------------+
-|  Video Generator| <- Agnes Video API (agnes-video-v2.0)
-|  ti2vid mode    |    Each scene uses the SAME reference image
-|  (per scene)    |    as first frame for consistency
-+--------+--------+
-         |
-+-----------------+
-|  Concatenation  | <- moviepy
-|  Final Video    |
-+-----------------+
+creatives/*.yaml          ← your ideas
+        │
+        ▼
+┌─────────────────┐
+│  run_creative.py │  ← unified entry point
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Screenwriter    │  Agnes Chat (agnes-2.0-flash)
+│  story + script  │  → story, scenes, end-frame prompts
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Image Generator │  Agnes Image (agnes-image-2.1-flash)
+│  character ref   │  → reference image, end-frame images
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Video Generator │  Agnes Video (agnes-video-v2.0)
+│  per-scene video │  → t2v / ti2vid / keyframes
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Concatenation   │  moviepy
+│  final_video.mp4 │
+└─────────────────┘
 ```
 
-## Pipeline Flow
+## How Character Consistency Works
 
-1. **Story Development**: LLM expands your idea into a structured story with detailed character descriptions
-2. **Character Reference**: Uses the provided reference image, or auto-generates one from the story
-3. **Script Writing**: LLM divides the story into scenes with dialogue and actions
-4. **Scene Videos**: Each scene generates a video using the reference image (ti2vid mode) as the first frame
-5. **Concatenation**: All scene videos are joined into the final output
+1. **Stage 1 (t2i)** — A character reference image is generated from the story's character description, or you provide one directly.
+2. **Stage 2 (ti2vid)** — Each scene video starts from this reference image. The video model animates from the same visual anchor, preserving character design, colors, and composition across all scenes.
 
-## Character Consistency
+> **Tip**: Cartoon/stylized art gets the best consistency. For photorealistic output, providing an explicit `reference_image` is recommended.
 
-The pipeline maintains character consistency across scenes through a two-stage approach:
-
-**Stage 1 (t2i)**: Each scene generates a unique first frame from text, but all prompts share the same style keywords (art style, color palette, lighting, character design) to lock the visual identity.
-
-**Stage 2 (ti2vid)**: The first frame is passed to the video model as a reference image. The model animates from this starting point, preserving character design, colors, and composition.
-
-> **Tip**: Cartoon/chibi styles work best for consistency. For photorealistic styles, always provide an explicit `reference_image`.
-
-## Agnes API Details
-
-| Purpose | Endpoint | Model |
-|---------|----------|-------|
-| Chat (Story/Script) | POST `/v1/chat/completions` | agnes-2.0-flash |
-| Character Reference | POST `/v1/images/generations` | agnes-image-2.1-flash |
-| Image Upload | POST `/v1/images/generations` (img2img) | agnes-image-2.1-flash |
-| Scene Video (ti2vid) | POST `/v1/videos` (image + mode=ti2vid) | agnes-video-v2.0 |
-| Task Polling | GET `/v1/videos/{task_id}` | - |
-
-### Duration Config
+## Configuration
 
 Edit `configs/idea2video.yaml`:
 
 ```yaml
 video_generator:
   init_args:
-    default_duration: 5  # seconds per scene (5, 10, 15, 18, 20)
+    default_duration: 10  # seconds per scene (5, 10, 15, 18, 20)
 ```
 
-| Duration | num_frames | frame_rate |
-|----------|-----------|------------|
+| Duration | Frames | FPS |
+|----------|--------|-----|
 | 5s | 121 | 24 |
 | 10s | 241 | 24 |
 | 15s | 361 | 24 |
@@ -180,30 +180,23 @@ video_generator:
 
 ```
 vimax-agnes/
-├── start.sh                     # One-click launcher
-├── run_creative.py              # Creative YAML runner (unified entry point)
-├── main_idea2video.py           # Standalone idea2video entry (programmatic use)
-├── run_full_pipeline.py         # Full pipeline with keyframes chaining
-├── creatives/                   # Creative YAML configurations
+├── start.sh                          # One-click launcher
+├── run_creative.py                   # Unified entry point
+├── main_idea2video.py                # Programmatic entry
+├── creatives/                        # Creative YAML configs
+│   ├── child.yaml
 │   ├── example.yaml
+│   ├── frog.yaml
+│   ├── girldunk.yaml
 │   ├── hot_spring_robot.yaml
 │   └── singing_dancing.yaml
-├── configs/
-│   └── idea2video.yaml          # API and pipeline configuration
-├── agents/
-│   └── screenwriter.py          # LLM-powered story/script generation
+├── configs/idea2video.yaml           # System configuration
+├── agents/screenwriter.py            # LLM story/script agent
 ├── tools/
-│   ├── image_generator_agnes_api.py  # Agnes image generation (t2i + i2i)
-│   ├── video_generator_agnes_api.py  # Agnes video generation (t2v, ti2vid, keyframes)
-│   ├── render_backend.py             # Config-based backend initialization
-│   └── protocols.py                  # Type contracts
-├── interfaces/
-│   ├── shot_description.py           # Shot data model
-│   ├── image_output.py               # Image output container
-│   └── video_output.py               # Video output container
-├── pipelines/
-│   └── idea2video_pipeline.py        # Main orchestration pipeline
-├── prompts/                           # Scene prompt JSON files (historical)
+│   ├── image_generator_agnes_api.py  # Image generation (t2i + i2i)
+│   └── video_generator_agnes_api.py  # Video generation (t2v/ti2vid/keyframes)
+├── interfaces/                       # Pydantic data models
+├── pipelines/idea2video_pipeline.py  # Core orchestration
 ├── requirements.txt
 └── LICENSE
 ```

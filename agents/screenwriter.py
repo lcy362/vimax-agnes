@@ -39,7 +39,7 @@ class Screenwriter:
                 "temperature": 0.7,
                 "max_tokens": 4096,
             },
-            timeout=60,
+            timeout=None,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -96,7 +96,7 @@ class Screenwriter:
                 "temperature": 0.7,
                 "max_tokens": 4096,
             },
-            timeout=120,
+            timeout=None,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -143,9 +143,10 @@ the content directly.
 
         print(f"🔍 正在分析 {len(image_paths)} 张图片内容...", flush=True)
         logger.info(f"[Screenwriter] Describing {len(image_paths)} images via multimodal chat...")
+        print(f"⏳ 调用多模态模型分析中（图片较多时可能较慢，请耐心等待）...", flush=True)
         descriptions = self._chat_multimodal(system_prompt, user_text, image_paths)
         logger.info(f"[Screenwriter] Image descriptions: {len(descriptions)} chars")
-        print(f"✅ 图片内容分析完成", flush=True)
+        print(f"✅ 图片内容分析完成 ({len(descriptions)} 字符)", flush=True)
         return descriptions
 
     def develop_story(self, idea: str, user_requirement: str, style: str, image_context: str = "") -> str:

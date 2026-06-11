@@ -371,9 +371,20 @@ class Idea2VideoPipeline:
                     images_to_analyze.append(p)
 
         if images_to_analyze:
-            print(f"\n🔍 正在分析 {len(images_to_analyze)} 张图片（含起始帧+尾帧）...", flush=True)
+            print(f"\n{'='*60}")
+            print(f"🔍 Step 0: 图片内容分析")
+            print(f"{'='*60}")
+            print(f"   图片数量: {len(images_to_analyze)} 张")
+            for i, img in enumerate(images_to_analyze):
+                label = "起始帧" if i == 0 else f"尾帧 {i-1}"
+                # Show filename only for local paths, full for short URLs
+                display = os.path.basename(img) if os.path.exists(img) else img[:60]
+                print(f"   [{label}] {display}")
+            print()
             image_context = self.screenwriter.describe_images(images_to_analyze)
-            print(f"📸 图片内容分析:\n{image_context[:300]}...\n")
+            print(f"\n📸 分析结果 ({len(image_context)} 字符):")
+            print(f"   {image_context[:250]}...")
+            print()
 
         # ── Step 1: Develop Story ──
         story_path = os.path.join(self.working_dir, "story.txt")

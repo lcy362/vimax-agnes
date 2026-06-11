@@ -17,7 +17,7 @@ English | [中文](zh.md)
 
 ## Example
 
-🎬 **Growth Journey** — a girl from newborn to age 6, 8 scenes generated from one start frame and per-scene end frames:
+🎬 **The Frog Prince** — a dark-twist fairytale, 5 scenes generated with auto-generated keyframes:
 
 [v.douyin.com/L4F6KdGnD6U/](https://v.douyin.com/L4F6KdGnD6U/)
 

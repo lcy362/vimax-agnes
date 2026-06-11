@@ -1,6 +1,8 @@
 # ViMax-Agnes
 
-**Agentic Video Generation — From Idea to Video, Powered Entirely by Agnes AI.**
+**Free AI Video Generation with Agnes AI — Turn any idea into a multi-scene video with consistent characters.**
+
+> Use Agnes AI's free models (`agnes-video-v2.0`, `agnes-image-2.1-flash`, `agnes-2.0-flash`) to generate videos from text — no GPU, no credit card, just an API key.
 
 English | [中文](zh.md)
 
@@ -18,17 +20,13 @@ English | [中文](zh.md)
 
 ## What It Does
 
-ViMax-Agnes is a lightweight agentic framework that turns a **text idea** into a **complete multi-scene video** — end to end, with no manual intervention.
+ViMax-Agnes is an open-source agentic video generation framework that uses the [Agnes AI](https://platform.agnes-ai.com) API to automatically produce complete videos from text ideas. All three Agnes free models work together:
 
-Give it a creative concept, a style preference, and a few constraints. It will:
+- **agnes-2.0-flash** (Chat) — writes stories, scripts, and visual prompts from your idea
+- **agnes-image-2.1-flash** (Image) — generates character reference images and keyframes via text-to-image
+- **agnes-video-v2.0** (Video) — produces scene videos via text-to-video (t2v), image-to-video (ti2vid), and keyframes modes
 
-1. **Write a story** with detailed characters and plot
-2. **Generate a character reference image** for visual consistency
-3. **Break the story into scenes** with cinematic visual prompts
-4. **Produce a video per scene** with consistent characters
-5. **Stitch everything** into a final video
-
-All powered by a single API: [Agnes AI](https://platform.agnes-ai.com) (free, no credit card required).
+No registration fee, no credit card — [get a free Agnes API key](https://platform.agnes-ai.com) and start generating.
 
 ## Key Features
 
@@ -158,9 +156,23 @@ creatives/*.yaml          ← your ideas
 
 > **Tip**: Cartoon/stylized art gets the best consistency. For photorealistic output, providing an explicit `reference_image` is recommended.
 
+## Agnes AI Models Used
+
+This project uses three free Agnes AI models via the OpenAI-compatible API at `https://apihub.agnes-ai.com/v1`:
+
+| Purpose | Agnes Model | API Endpoint | Mode |
+|---------|-------------|--------------|------|
+| Story & script writing | `agnes-2.0-flash` | `POST /chat/completions` | Chat |
+| Character reference & keyframes | `agnes-image-2.1-flash` | `POST /images/generations` | text-to-image (t2i) |
+| Image editing & transitions | `agnes-image-2.0-flash` | `POST /images/generations` | image-to-image (i2i) |
+| Scene video generation | `agnes-video-v2.0` | `POST /videos` | t2v / ti2vid / keyframes |
+| Video task polling | — | `GET /videos/{task_id}` | Async polling |
+
+All models are **free to use** with an Agnes API key — no credit card, no GPU required.
+
 ## Configuration
 
-Edit `configs/idea2video.yaml`:
+Edit `configs/idea2video.yaml` to adjust per-scene video duration:
 
 ```yaml
 video_generator:

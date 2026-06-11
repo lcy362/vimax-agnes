@@ -1,6 +1,8 @@
 # ViMax-Agnes
 
-**Agentic 视频生成 —— 从创意到成片，完全由 Agnes AI 驱动。**
+**免费 AI 视频生成 —— 用 Agnes AI 免费模型把任意创意变成多场景视频，角色一致、自动拼接。**
+
+> 使用 Agnes AI 免费模型（`agnes-video-v2.0`、`agnes-image-2.1-flash`、`agnes-2.0-flash`）从文本生成视频 —— 无需 GPU、无需信用卡，只需一个 API Key。
 
 [English](README.md) | 中文
 
@@ -18,17 +20,13 @@
 
 ## 这是什么
 
-ViMax-Agnes 是一个轻量级 Agentic 视频生成框架，能把一段**文字创意**自动变成一个**完整的多场景视频** —— 全流程无需人工干预。
+ViMax-Agnes 是一个开源的 Agentic 视频生成框架，使用 [Agnes AI](https://platform.agnes-ai.com) API 自动将文字创意变成完整视频。三个 Agnes 免费模型协同工作：
 
-只需提供创意描述、风格偏好和简单约束，系统会自动完成：
+- **agnes-2.0-flash**（对话）—— 从你的创意生成故事、脚本和视觉 prompt
+- **agnes-image-2.1-flash**（图片）—— 通过 text-to-image 生成角色参考图和关键帧
+- **agnes-video-v2.0**（视频）—— 通过 text-to-video（t2v）、image-to-video（ti2vid）、keyframes 模式生成场景视频
 
-1. **创作故事** — 生成有角色、有情节的完整故事
-2. **生成角色参考图** — 锁定视觉一致性
-3. **拆分场景脚本** — 将故事转化为电影级视觉 prompt
-4. **逐场景生成视频** — 每个场景保持角色一致
-5. **拼接成片** — 输出最终视频
-
-全部由 [Agnes AI](https://platform.agnes-ai.com) 单一 API 驱动（免费，无需信用卡）。
+无需注册费、无需信用卡 —— [免费获取 Agnes API Key](https://platform.agnes-ai.com) 即可开始生成。
 
 ## 核心功能
 
@@ -158,9 +156,23 @@ creatives/*.yaml           ← 你的创意
 
 > **提示**：卡通/风格化画风一致性效果最好。写实风格建议直接提供 `reference_image`。
 
+## 使用的 Agnes AI 模型
+
+本项目通过 OpenAI 兼容 API（`https://apihub.agnes-ai.com/v1`）使用三个 Agnes 免费模型：
+
+| 用途 | Agnes 模型 | API 接口 | 模式 |
+|------|-----------|---------|------|
+| 故事和脚本编写 | `agnes-2.0-flash` | `POST /chat/completions` | 对话 |
+| 角色参考图和关键帧 | `agnes-image-2.1-flash` | `POST /images/generations` | text-to-image (t2i) |
+| 图片编辑和过渡帧 | `agnes-image-2.0-flash` | `POST /images/generations` | image-to-image (i2i) |
+| 场景视频生成 | `agnes-video-v2.0` | `POST /videos` | t2v / ti2vid / keyframes |
+| 视频任务轮询 | — | `GET /videos/{task_id}` | 异步轮询 |
+
+所有模型均**免费使用**，只需 Agnes API Key —— 无需信用卡、无需 GPU。
+
 ## 配置
 
-编辑 `configs/idea2video.yaml`：
+编辑 `configs/idea2video.yaml` 调整每场景视频时长：
 
 ```yaml
 video_generator:

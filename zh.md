@@ -85,7 +85,12 @@ chaining_mode: none          # "none" | "keyframes" | "ti2vid"
 video_width: 768
 video_height: 1152
 reference_image: ""          # 可选：本地路径或 URL
+# end_frame_images:             # 可选：自定义每场景尾帧（本地文件自动 resize）
+#   - /path/to/scene0_end.png
 ```
+
+> **自定义尾帧**：`end_frame_images` 为可选字段。提供时系统直接使用，不自动生成；
+> 本地文件会自动 resize 到视频尺寸；每场景对应一个路径/URL，超出部分自动回退生成。
 
 ## 系统架构
 

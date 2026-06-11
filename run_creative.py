@@ -225,6 +225,7 @@ async def run_idea2video_pipeline(config: Dict[str, Any], api_key: str) -> str:
         chaining_mode=config.get("chaining_mode", "none"),
         video_width=config.get("video_width", 0),
         video_height=config.get("video_height", 0),
+        end_frame_images=config.get("end_frame_images", None),
     )
     return final_path
 
@@ -349,6 +350,9 @@ def main() -> int:
         print(f"   参考图:   {ref_img}")
     else:
         print(f"   参考图:   (自动生成角色参考图)")
+    end_frame_imgs = creative_config.get("end_frame_images", [])
+    if end_frame_imgs:
+        print(f"   自定义尾帧: {len(end_frame_imgs)} 张")
     print(f"   工作目录: .working_dir/{creative_name}")
     print(f"{'='*60}\n")
 

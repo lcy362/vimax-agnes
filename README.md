@@ -85,7 +85,13 @@ chaining_mode: none          # "none" | "keyframes" | "ti2vid"
 video_width: 768
 video_height: 1152
 reference_image: ""          # optional: local path or URL
+# end_frame_images:             # optional: custom end frame per scene (local files auto-resized)
+#   - /path/to/scene0_end.png
 ```
+
+> **Custom End Frames**: `end_frame_images` is optional. When provided, the system uses
+> your images directly instead of auto-generating. Local files are auto-resized to the
+> target video dimensions. One path/URL per scene; extra scenes fall back to auto-generation.
 
 ## Architecture
 

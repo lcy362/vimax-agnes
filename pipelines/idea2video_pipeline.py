@@ -148,6 +148,7 @@ class Idea2VideoPipeline:
         reference_image: str,
         vw: int = 1152,
         vh: int = 768,
+        end_frame_images: list = None,
     ) -> list:
         """Generate scenes with keyframes chaining (first + last frame).
 
@@ -181,17 +182,40 @@ class Idea2VideoPipeline:
                 continue
 
             # Step A: Generate end-of-scene frame image
-            end_frame_prompt = end_frame_prompts[scene_idx]
-            end_frame_path = os.path.join(scene_dir, "end_frame.png")
-
-            print(f"  🖼️  Generating end frame for scene {scene_idx}...")
-            print(f"  Prompt: {end_frame_prompt[:120]}...")
-            img_output = await self.image_generator.generate_single_image(
-                prompt=end_frame_prompt,
-                size=f"{vw}x{vh}",
+            # 检查用户是否提供了此场景的自定义尾帧
+            user_ef = (
+                end_frame_images[scene_idx]
+                if end_frame_images and scene_idx < len(end_frame_images) and end_frame_images[scene_idx]
+                else None
             )
-            img_output.save(end_frame_path)
-            print(f"  ✅ End frame saved: {end_frame_path}")
+
+            if user_ef:
+                print(f"  📸 使用自定义尾帧: {user_ef}", flush=True)
+                if os.path.exists(user_ef):
+                    # 本地文件：resize 到目标尺寸后放入 scene_dir
+                    dest = os.path.join(scene_dir, "end_frame.png")
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", user_ef,
+                        "-vf", f"scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2",
+                        dest
+                    ], capture_output=True, check=True, timeout=30)
+                    end_frame_path = dest
+                    print(f"  📐 已适配尺寸: {vw}x{vh}", flush=True)
+                else:
+                    # URL，直接使用
+                    end_frame_path = user_ef
+            else:
+                # 自动生成尾帧（原有逻辑）
+                end_frame_prompt = end_frame_prompts[scene_idx]
+                end_frame_path = os.path.join(scene_dir, "end_frame.png")
+                print(f"  🖼️ 自动生成尾帧...", flush=True)
+                print(f"  Prompt: {end_frame_prompt[:120]}...", flush=True)
+                img_output = await self.image_generator.generate_single_image(
+                    prompt=end_frame_prompt,
+                    size=f"{vw}x{vh}",
+                )
+                img_output.save(end_frame_path)
+                print(f"  ✅ 自动生成完成: {end_frame_path}", flush=True)
 
             # Step B: Upload both frames to get hosted URLs
             first_frame_url = self.video_generator._resolve_image_ref(current_first_frame)
@@ -310,6 +334,7 @@ class Idea2VideoPipeline:
         chaining_mode: str = "none",
         video_width: int = 0,
         video_height: int = 0,
+        end_frame_images: list = None,
     ) -> str:
         """Run the full pipeline and return the path to the final video.
 
@@ -402,7 +427,7 @@ class Idea2VideoPipeline:
             print()
 
             all_video_paths = await self._generate_keyframe_chained_scenes(
-                scenes, end_frame_prompts, character_ref_path, vw, vh
+                scenes, end_frame_prompts, character_ref_path, vw, vh, end_frame_images
             )
 
         elif chaining_mode == "ti2vid":
@@ -474,6 +499,7 @@ class Idea2VideoPipeline:
         chaining_mode: str = "none",
         video_width: int = 0,
         video_height: int = 0,
+        end_frame_images: list = None,
     ) -> str:
         """Alias for run()."""
         return await self.run(
@@ -484,4 +510,5 @@ class Idea2VideoPipeline:
             chaining_mode=chaining_mode,
             video_width=video_width,
             video_height=video_height,
+            end_frame_images=end_frame_images,
         )

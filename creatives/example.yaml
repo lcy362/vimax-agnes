@@ -65,3 +65,12 @@ chaining_mode: "keyframes"
 # 注意：尺寸会影响生成的参考图比例，请保持一致。
 video_width: 768
 video_height: 1152
+
+# ── 自定义尾帧（可选）─────────────────────────────────────────────────────────
+# 给每个场景指定 end_frame 图片。支持本地路径或 URL。
+# 本地文件会自动 resize 到视频尺寸。场景数多于图片数时，多余的自动生成。
+# 留空或删除此字段 = 全部自动生成（默认行为）
+# end_frame_images:
+#   - /path/to/scene0_end.png
+#   - /path/to/scene1_end.png
+#   - https://example.com/scene2_end.png

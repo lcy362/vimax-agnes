@@ -381,51 +381,52 @@ Output ONLY the image prompt text, no JSON, no explanation.
     def generate_end_frame_prompts(self, scenes: List[str], style: str) -> List[str]:
         """Generate end-of-scene frame image prompts for keyframes mode.
 
-        For each scene, generates a detailed STATIC image prompt describing
-        what the scene looks like at its END — this becomes the last keyframe
-        for the keyframes video generation mode.
+        Each scene's end frame prompt is generated individually to guarantee
+        correct ordering (the LLM cannot be trusted to maintain array index
+        order across multiple scenes in a single batch call).
 
         Returns list of prompt strings, one per scene.
         """
-        scenes_text = ""
-        for i, scene in enumerate(scenes):
-            scenes_text += f"\nScene {i}: {scene}\n"
-
         system_prompt = """\
-You are a visual prompt engineer for AI image generation. For each video scene \
-description below, generate a STATIC image prompt that represents what the scene \
-looks like at its very END — the final frame of the video.
-
-[Output Format] Return a JSON object:
-{
-  "end_frames": [
-    "End frame image prompt for Scene 0 (STATIC, detailed, English)...",
-    "End frame image prompt for Scene 1...",
-    ...
-  ]
-}
+You are a visual prompt engineer for AI image generation. Generate a STATIC \
+image prompt that represents what this video scene looks like at its very END \
+— the final frozen frame of the video.
 
 Rules:
-- Each prompt must describe a STATIC frozen moment, NOT motion or action verbs.
+- Describe a STATIC frozen moment, NOT motion or action verbs.
 - The end frame must be visually consistent with the scene description — \
-same character, same outfit, same environment, same lighting.
+same character, same outfit, same environment, same lighting, same camera angle.
 - Focus on: pose, facial expression, hand position, body posture, camera angle, \
 lighting, background elements — everything visible in a single frozen frame.
-- Include art style matching the scene (e.g., "realistic cinematic", "anime").
-- The character's appearance (face, body, clothing) must remain EXACTLY the same \
-across ALL end frames — only the pose, expression, and environment change.
-- Each prompt should be 3-5 sentences, rich in visual detail.
-- MUST be in ENGLISH for best image generation results.
+- Include art style (e.g., "realistic cinematic", "anime").
+- 3-5 sentences, rich in visual detail.
+- MUST be in ENGLISH.
+
+Output ONLY the image prompt text, no JSON, no explanation.
 """
-        user_prompt = f"""\
+        end_frames = []
+        for scene_idx, scene_text in enumerate(scenes):
+            logger.info(f"[Screenwriter] Generating end frame prompt for scene {scene_idx}...")
+            user_prompt = f"""\
 <style>{style}</style>
 
-{scenes_text}
+<scene>
+{scene_text}
+</scene>
+
+Write the STATIC end-frame image prompt for this scene. This should describe
+what the final frozen frame of this scene looks like — the pose, expression,
+lighting, and environment at the moment this scene ends.
 """
-        print(f"🎬 正在生成关键帧提示词...", flush=True)
-        logger.info("[Screenwriter] Generating end frame prompts for keyframes mode...")
-        result = self._chat_json(system_prompt, user_prompt)
-        end_frames = result.get("end_frames", [])
+            prompt = self._chat(system_prompt, user_prompt).strip()
+            if prompt.startswith("```"):
+                prompt = prompt.split("\n", 1)[1]
+                if prompt.endswith("```"):
+                    prompt = prompt[:-3]
+                prompt = prompt.strip()
+            end_frames.append(prompt)
+            logger.info(f"[Screenwriter] End frame {scene_idx} prompt: {prompt[:80]}...")
+
         logger.info(f"[Screenwriter] Generated {len(end_frames)} end frame prompts")
         print(f"✅ 关键帧提示词完成，共 {len(end_frames)} 个", flush=True)
         return end_frames

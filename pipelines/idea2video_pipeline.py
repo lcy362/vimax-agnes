@@ -257,7 +257,7 @@ class Idea2VideoPipeline:
         BASE_URL = "https://apihub.agnes-ai.com/v1"
 
         def _make_curl(video_id: str) -> str:
-            return f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" "{BASE_URL}/videos/{video_id}"'
+            return f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" "{BASE_URL}/agnesapi?video_id={video_id}"'
 
         def _save_task(scene_dir: str, video_id: str):
             task_file = os.path.join(scene_dir, "task.json")

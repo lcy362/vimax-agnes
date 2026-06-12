@@ -144,12 +144,12 @@ class VideoGeneratorAgnesAPI:
         poll_count = 0
         curl_cmd = (
             f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" '
-            f'"{BASE_URL}/videos/{video_id}"'
+            f'"{BASE_URL}/agnesapi?video_id={video_id}"'
         )
         while True:
             try:
                 resp = requests.get(
-                    f"{BASE_URL}/videos/{video_id}",
+                    f"{BASE_URL}/agnesapi?video_id={video_id}",
                     headers=self.headers,
                     timeout=15,
                 )

@@ -244,47 +244,40 @@ class Idea2VideoPipeline:
     ) -> list:
         """Generate scenes with keyframes chaining (first + last frame).
 
-        Flow for each scene:
-          1. first_frame = previous scene's end_frame (or reference image)
-          2. Generate end_frame image from end_frame_prompt
-          3. Submit video with keyframes mode [first_frame, end_frame]
-          4. AI fills motion between first and last frame
+        Two-phase approach:
+          1. Submit all video tasks at once (so they process in parallel on server)
+          2. Wait for results sequentially
+
+        All end frames are pre-generated before this method is called, so
+        there is no inter-scene dependency on video generation order.
 
         Returns list of video file paths.
         """
-        all_video_paths = []
         current_first_frame = reference_image
 
+        # ── Phase 0: Collect scenes that need generation ──
+        pending = []
         for scene_idx, scene_text in enumerate(scenes):
-            print(f"\n{'─'*50}")
-            print(f"🎞️  Scene {scene_idx} (keyframes chain)")
-            print(f"{'─'*50}")
-
             scene_dir = os.path.join(self.working_dir, f"scene_{scene_idx}")
             os.makedirs(scene_dir, exist_ok=True)
             video_path = os.path.join(scene_dir, "video.mp4")
 
-            # Skip if video already exists
             if os.path.exists(video_path):
                 logger.info(f"Scene {scene_idx} exists, skipping.")
-                all_video_paths.append(video_path)
                 end_frame_path = os.path.join(scene_dir, "end_frame.png")
                 if os.path.exists(end_frame_path):
                     current_first_frame = end_frame_path
                 continue
 
-            # Step A: Generate end-of-scene frame image
-            # 检查用户是否提供了此场景的自定义尾帧
+            # Resolve end frame
             user_ef = (
                 end_frame_images[scene_idx]
                 if end_frame_images and scene_idx < len(end_frame_images) and end_frame_images[scene_idx]
                 else None
             )
-
             if user_ef:
-                print(f"  📸 使用自定义尾帧: {user_ef}", flush=True)
+                print(f"📸 Scene {scene_idx}: 使用自定义尾帧: {user_ef}", flush=True)
                 if os.path.exists(user_ef):
-                    # 本地文件：resize 到目标尺寸后放入 scene_dir
                     dest = os.path.join(scene_dir, "end_frame.png")
                     subprocess.run([
                         "ffmpeg", "-y", "-i", user_ef,
@@ -292,18 +285,13 @@ class Idea2VideoPipeline:
                         dest
                     ], capture_output=True, check=True, timeout=30)
                     end_frame_path = dest
-                    print(f"  📐 已适配尺寸: {vw}x{vh}", flush=True)
                 else:
-                    # URL，直接使用
                     end_frame_path = user_ef
             else:
                 end_frame_path = os.path.join(scene_dir, "end_frame.png")
-                if os.path.exists(end_frame_path):
-                    print(f"  📦 使用预生成的尾帧: {end_frame_path}", flush=True)
-                else:
+                if not os.path.exists(end_frame_path):
                     end_frame_prompt = end_frame_prompts[scene_idx]
                     print(f"  🖼️ 自动生成尾帧 (t2i)...", flush=True)
-                    print(f"  Prompt: {end_frame_prompt[:120]}...", flush=True)
                     img_output = await self.image_generator.generate_single_image(
                         prompt=end_frame_prompt,
                         size=f"{vw}x{vh}",
@@ -311,26 +299,64 @@ class Idea2VideoPipeline:
                     img_output.save(end_frame_path)
                     print(f"  ✅ 自动生成完成: {end_frame_path}", flush=True)
 
-            # Step B: Upload both frames to get hosted URLs
+            # Upload both frames to hosted URLs
             first_frame_url = self.video_generator._resolve_image_ref(current_first_frame)
             end_frame_url = self.video_generator._resolve_image_ref(end_frame_path)
-            print(f"  📤 First frame & end frame uploaded to hosted URLs")
 
-            # Step C: Generate video with keyframes mode
-            print(f"  🎬 Generating video (keyframes, scene {scene_idx})...")
-            video_output = await self.video_generator.generate_single_video(
-                prompt=scene_text,
-                reference_image_paths=[first_frame_url, end_frame_url],
+            pending.append({
+                "scene_idx": scene_idx,
+                "scene_text": scene_text,
+                "video_path": video_path,
+                "first_frame_url": first_frame_url,
+                "end_frame_url": end_frame_url,
+                "end_frame_path": end_frame_path,
+                "scene_dir": scene_dir,
+            })
+
+            current_first_frame = end_frame_path
+
+        # ── Phase 1: Submit all pending video tasks ──
+        if pending:
+            print(f"\n{'='*60}")
+            print(f"🎬 提交 {len(pending)} 个视频任务 (keyframes)")
+            print(f"{'='*60}")
+
+        task_infos = []
+        for info in pending:
+            scene_idx = info["scene_idx"]
+            print(f"  📤 提交 Scene {scene_idx}...", flush=True)
+            task_id = self.video_generator.submit_video(
+                prompt=info["scene_text"],
+                reference_image_paths=[info["first_frame_url"], info["end_frame_url"]],
                 duration=self.video_duration,
                 width=vw,
                 height=vh,
             )
-            video_output.save(video_path)
-            all_video_paths.append(video_path)
-            print(f"  ✅ Video saved: {video_path}")
+            info["task_id"] = task_id
+            task_infos.append(info)
+            print(f"  ✅ Scene {scene_idx} 已提交 (task: {task_id[:20]}...)", flush=True)
 
-            # Use this scene's end_frame as next scene's first_frame
-            current_first_frame = end_frame_path
+        # ── Phase 2: Wait for results sequentially ──
+        if task_infos:
+            print(f"\n{'='*60}")
+            print(f"⏳ 等待 {len(task_infos)} 个视频生成完成...")
+            print(f"{'='*60}")
+
+        for info in task_infos:
+            scene_idx = info["scene_idx"]
+            print(f"\n{'─'*50}")
+            print(f"🎞️  Scene {scene_idx} (keyframes chain)")
+            print(f"  ⏳ 等待视频生成完成...", flush=True)
+            video_output = await self.video_generator.wait_for_video(info["task_id"])
+            video_output.save(info["video_path"])
+            print(f"  ✅ Video saved: {info['video_path']}")
+
+        # Collect all video paths in scene order
+        all_video_paths = []
+        for scene_idx in range(len(scenes)):
+            video_path = os.path.join(self.working_dir, f"scene_{scene_idx}", "video.mp4")
+            if os.path.exists(video_path):
+                all_video_paths.append(video_path)
 
         return all_video_paths
 

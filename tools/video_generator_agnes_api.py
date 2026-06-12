@@ -245,7 +245,34 @@ class VideoGeneratorAgnesAPI:
         **kwargs,
     ) -> VideoOutput:
         """
-        Generate a video.
+        Generate a video (submit + wait). Convenience wrapper around
+        submit_video() + wait_for_video().
+        """
+        task_id = self.submit_video(
+            prompt=prompt,
+            reference_image_paths=reference_image_paths,
+            duration=duration,
+            width=width,
+            height=height,
+            seed=seed,
+            negative_prompt=negative_prompt,
+            **kwargs,
+        )
+        return await self.wait_for_video(task_id)
+
+    def submit_video(
+        self,
+        prompt: str,
+        reference_image_paths: List[str] = [],
+        duration: Optional[int] = None,
+        width: int = 1152,
+        height: int = 768,
+        seed: Optional[int] = None,
+        negative_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Submit a video generation task. Returns task_id immediately.
 
         - 0 reference images → text-to-video
         - 1 reference image → image-to-video (ti2vid mode)
@@ -291,9 +318,11 @@ class VideoGeneratorAgnesAPI:
 
         # Submit with retry
         task_id = self._submit_with_retry(payload, mode_desc)
-        logger.info(f"[Agnes Video] Task submitted: {task_id[:20]}... waiting...")
+        logger.info(f"[Agnes Video] Task submitted: {task_id[:20]}...")
+        return task_id
 
-        # Poll until done
+    async def wait_for_video(self, task_id: str) -> VideoOutput:
+        """Poll a submitted video task until completion. Returns VideoOutput."""
         final = await self._poll_task(task_id)
 
         # Extract video URL from response

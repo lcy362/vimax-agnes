@@ -22,6 +22,7 @@ from interfaces.video_output import VideoOutput
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://apihub.agnes-ai.com/v1"
+API_ROOT = "https://apihub.agnes-ai.com"
 
 # Duration presets: (num_frames, frame_rate) — max 441 frames, must be 8n+1
 DURATION_PRESETS = {
@@ -144,12 +145,12 @@ class VideoGeneratorAgnesAPI:
         poll_count = 0
         curl_cmd = (
             f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" '
-            f'"{BASE_URL}/agnesapi?video_id={video_id}"'
+            f'"{API_ROOT}/agnesapi?video_id={video_id}"'
         )
         while True:
             try:
                 resp = requests.get(
-                    f"{BASE_URL}/agnesapi?video_id={video_id}",
+                    f"{API_ROOT}/agnesapi?video_id={video_id}",
                     headers=self.headers,
                     timeout=15,
                 )

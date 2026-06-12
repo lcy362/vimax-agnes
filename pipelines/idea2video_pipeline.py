@@ -262,7 +262,10 @@ class Idea2VideoPipeline:
         def _save_task(scene_dir: str, video_id: str):
             task_file = os.path.join(scene_dir, "task.json")
             with open(task_file, "w") as f:
-                json.dump({"video_id": video_id, "curl_cmd": _make_curl(video_id)}, f, indent=2)
+                json.dump({"video_id": video_id}, f, indent=2)
+            curl_file = os.path.join(scene_dir, "curl.sh")
+            with open(curl_file, "w") as f:
+                f.write(_make_curl(video_id) + "\n")
 
         def _load_task(scene_dir: str):
             task_file = os.path.join(scene_dir, "task.json")

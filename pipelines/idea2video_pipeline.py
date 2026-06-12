@@ -254,6 +254,26 @@ class Idea2VideoPipeline:
         Returns list of video file paths.
         """
         current_first_frame = reference_image
+        BASE_URL = "https://apihub.agnes-ai.com/v1"
+
+        def _make_curl(task_id: str) -> str:
+            return f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" "{BASE_URL}/videos/{task_id}"'
+
+        def _save_task(scene_dir: str, task_id: str):
+            task_file = os.path.join(scene_dir, "task.json")
+            with open(task_file, "w") as f:
+                json.dump({"task_id": task_id, "curl_cmd": _make_curl(task_id)}, f, indent=2)
+
+        def _load_task(scene_dir: str) -> Optional[str]:
+            task_file = os.path.join(scene_dir, "task.json")
+            if os.path.exists(task_file):
+                try:
+                    with open(task_file, "r") as f:
+                        data = json.load(f)
+                    return data.get("task_id")
+                except Exception:
+                    pass
+            return None
 
         # ── Phase 0: Collect scenes that need generation ──
         pending = []
@@ -267,6 +287,23 @@ class Idea2VideoPipeline:
                 end_frame_path = os.path.join(scene_dir, "end_frame.png")
                 if os.path.exists(end_frame_path):
                     current_first_frame = end_frame_path
+                continue
+
+            # Check if this scene was already submitted (resume after restart)
+            existing_task_id = _load_task(scene_dir)
+            if existing_task_id:
+                logger.info(f"Scene {scene_idx}: resuming from task {existing_task_id[:20]}...")
+                end_frame_path = os.path.join(scene_dir, "end_frame.png")
+                print(f"📦 Scene {scene_idx}: 从 task.json 恢复 (task: {existing_task_id[:20]}...)", flush=True)
+                print(f"  🔍 手动查询: {_make_curl(existing_task_id)}", flush=True)
+                pending.append({
+                    "scene_idx": scene_idx,
+                    "video_path": video_path,
+                    "task_id": existing_task_id,
+                    "scene_dir": scene_dir,
+                    "already_submitted": True,
+                })
+                current_first_frame = end_frame_path
                 continue
 
             # Resolve end frame
@@ -311,18 +348,19 @@ class Idea2VideoPipeline:
                 "end_frame_url": end_frame_url,
                 "end_frame_path": end_frame_path,
                 "scene_dir": scene_dir,
+                "already_submitted": False,
             })
 
             current_first_frame = end_frame_path
 
-        # ── Phase 1: Submit all pending video tasks ──
-        if pending:
+        # ── Phase 1: Submit pending video tasks (skip already-submitted) ──
+        new_submissions = [i for i in pending if not i.get("already_submitted")]
+        if new_submissions:
             print(f"\n{'='*60}")
-            print(f"🎬 提交 {len(pending)} 个视频任务 (keyframes)")
+            print(f"🎬 提交 {len(new_submissions)} 个视频任务 (keyframes)")
             print(f"{'='*60}")
 
-        task_infos = []
-        for info in pending:
+        for info in new_submissions:
             scene_idx = info["scene_idx"]
             print(f"  📤 提交 Scene {scene_idx}...", flush=True)
             task_id = self.video_generator.submit_video(
@@ -333,23 +371,34 @@ class Idea2VideoPipeline:
                 height=vh,
             )
             info["task_id"] = task_id
-            task_infos.append(info)
+            info["already_submitted"] = True
+            _save_task(info["scene_dir"], task_id)
             print(f"  ✅ Scene {scene_idx} 已提交 (task: {task_id[:20]}...)", flush=True)
+            print(f"  🔍 手动查询: {_make_curl(task_id)}", flush=True)
 
         # ── Phase 2: Wait for results sequentially ──
-        if task_infos:
+        if pending:
             print(f"\n{'='*60}")
-            print(f"⏳ 等待 {len(task_infos)} 个视频生成完成...")
+            print(f"⏳ 等待 {len(pending)} 个视频生成完成...")
             print(f"{'='*60}")
 
-        for info in task_infos:
+        for info in pending:
             scene_idx = info["scene_idx"]
             print(f"\n{'─'*50}")
             print(f"🎞️  Scene {scene_idx} (keyframes chain)")
             print(f"  ⏳ 等待视频生成完成...", flush=True)
-            video_output = await self.video_generator.wait_for_video(info["task_id"])
-            video_output.save(info["video_path"])
-            print(f"  ✅ Video saved: {info['video_path']}")
+            try:
+                video_output = await self.video_generator.wait_for_video(info["task_id"])
+                video_output.save(info["video_path"])
+                print(f"  ✅ Video saved: {info['video_path']}")
+            except Exception as e:
+                logger.error(f"Scene {scene_idx} video failed: {e}")
+                print(f"  ❌ Scene {scene_idx} 视频生成失败: {e}", flush=True)
+                task_file = os.path.join(info["scene_dir"], "task.json")
+                if os.path.exists(task_file):
+                    os.remove(task_file)
+                    logger.info(f"Removed {task_file} for retry on next run")
+                raise
 
         # Collect all video paths in scene order
         all_video_paths = []

@@ -142,6 +142,10 @@ class VideoGeneratorAgnesAPI:
         """Poll video task until completed or failed. No timeout — Agnes video generation can be slow."""
         last_status = ""
         poll_count = 0
+        curl_cmd = (
+            f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" '
+            f'"{BASE_URL}/videos/{task_id}"'
+        )
         while True:
             try:
                 resp = requests.get(
@@ -161,6 +165,7 @@ class VideoGeneratorAgnesAPI:
 
                 if poll_count % 3 == 0:
                     print(f"  ⏳ 视频生成中... {status} {progress}%", flush=True)
+                    print(f"  🔍 手动查询: {curl_cmd}", flush=True)
 
                 if status in ("completed", "COMPLETED"):
                     return result

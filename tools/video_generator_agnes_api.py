@@ -138,18 +138,18 @@ class VideoGeneratorAgnesAPI:
                 best = (nf, fr)
         return best or DURATION_PRESETS[5]
 
-    async def _poll_task(self, task_id: str, interval: int = 15) -> dict:
+    async def _poll_task(self, video_id: str, interval: int = 15) -> dict:
         """Poll video task until completed or failed. No timeout — Agnes video generation can be slow."""
         last_status = ""
         poll_count = 0
         curl_cmd = (
             f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" '
-            f'"{BASE_URL}/videos/{task_id}"'
+            f'"{BASE_URL}/videos/{video_id}"'
         )
         while True:
             try:
                 resp = requests.get(
-                    f"{BASE_URL}/videos/{task_id}",
+                    f"{BASE_URL}/videos/{video_id}",
                     headers=self.headers,
                     timeout=15,
                 )
@@ -160,7 +160,7 @@ class VideoGeneratorAgnesAPI:
                 poll_count += 1
 
                 if status != last_status:
-                    logger.info(f"[Agnes Video] Task {task_id[:16]}... status={status} progress={progress}%")
+                    logger.info(f"[Agnes Video] Video {video_id[:16]}... status={status} progress={progress}%")
                     last_status = status
 
                 if poll_count % 3 == 0:
@@ -182,7 +182,7 @@ class VideoGeneratorAgnesAPI:
         """Submit a video generation task with retry logic for transient errors.
 
         Retries on HTTP 429 (rate limit) and 5xx (server error).
-        Returns task_id on success.
+        Returns video_id on success.
         """
         for attempt in range(self.max_retries):
             try:
@@ -196,9 +196,9 @@ class VideoGeneratorAgnesAPI:
                 # Success
                 if resp.status_code == 200:
                     result = resp.json()
-                    task_id = result.get("task_id") or result.get("id")
-                    if task_id:
-                        return task_id
+                    video_id = result.get("video_id") or result.get("task_id") or result.get("id")
+                    if video_id:
+                        return video_id
 
                 # Rate limited — wait and retry
                 if resp.status_code == 429:
@@ -253,7 +253,7 @@ class VideoGeneratorAgnesAPI:
         Generate a video (submit + wait). Convenience wrapper around
         submit_video() + wait_for_video().
         """
-        task_id = self.submit_video(
+        video_id = self.submit_video(
             prompt=prompt,
             reference_image_paths=reference_image_paths,
             duration=duration,
@@ -263,7 +263,7 @@ class VideoGeneratorAgnesAPI:
             negative_prompt=negative_prompt,
             **kwargs,
         )
-        return await self.wait_for_video(task_id)
+        return await self.wait_for_video(video_id)
 
     def submit_video(
         self,
@@ -277,7 +277,7 @@ class VideoGeneratorAgnesAPI:
         **kwargs,
     ) -> str:
         """
-        Submit a video generation task. Returns task_id immediately.
+        Submit a video generation task. Returns video_id immediately.
 
         - 0 reference images → text-to-video
         - 1 reference image → image-to-video (ti2vid mode)
@@ -322,13 +322,13 @@ class VideoGeneratorAgnesAPI:
         logger.info(f"[Agnes Video] {mode_desc}: {prompt[:80]}...")
 
         # Submit with retry
-        task_id = self._submit_with_retry(payload, mode_desc)
-        logger.info(f"[Agnes Video] Task submitted: {task_id[:20]}...")
-        return task_id
+        video_id = self._submit_with_retry(payload, mode_desc)
+        logger.info(f"[Agnes Video] Video submitted: {video_id[:20]}...")
+        return video_id
 
-    async def wait_for_video(self, task_id: str) -> VideoOutput:
+    async def wait_for_video(self, video_id: str) -> VideoOutput:
         """Poll a submitted video task until completion. Returns VideoOutput."""
-        final = await self._poll_task(task_id)
+        final = await self._poll_task(video_id)
 
         # Extract video URL from response
         video_url = (

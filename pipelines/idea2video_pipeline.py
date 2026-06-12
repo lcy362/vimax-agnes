@@ -256,21 +256,21 @@ class Idea2VideoPipeline:
         current_first_frame = reference_image
         BASE_URL = "https://apihub.agnes-ai.com/v1"
 
-        def _make_curl(task_id: str) -> str:
-            return f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" "{BASE_URL}/videos/{task_id}"'
+        def _make_curl(video_id: str) -> str:
+            return f'curl -s -H "Authorization: Bearer $AGNES_API_KEY" "{BASE_URL}/videos/{video_id}"'
 
-        def _save_task(scene_dir: str, task_id: str):
+        def _save_task(scene_dir: str, video_id: str):
             task_file = os.path.join(scene_dir, "task.json")
             with open(task_file, "w") as f:
-                json.dump({"task_id": task_id, "curl_cmd": _make_curl(task_id)}, f, indent=2)
+                json.dump({"video_id": video_id, "curl_cmd": _make_curl(video_id)}, f, indent=2)
 
-        def _load_task(scene_dir: str) -> Optional[str]:
+        def _load_task(scene_dir: str):
             task_file = os.path.join(scene_dir, "task.json")
             if os.path.exists(task_file):
                 try:
                     with open(task_file, "r") as f:
                         data = json.load(f)
-                    return data.get("task_id")
+                    return data.get("video_id") or data.get("task_id")
                 except Exception:
                     pass
             return None
@@ -290,16 +290,16 @@ class Idea2VideoPipeline:
                 continue
 
             # Check if this scene was already submitted (resume after restart)
-            existing_task_id = _load_task(scene_dir)
-            if existing_task_id:
-                logger.info(f"Scene {scene_idx}: resuming from task {existing_task_id[:20]}...")
+            existing_video_id = _load_task(scene_dir)
+            if existing_video_id:
+                logger.info(f"Scene {scene_idx}: resuming from video {existing_video_id[:20]}...")
                 end_frame_path = os.path.join(scene_dir, "end_frame.png")
-                print(f"📦 Scene {scene_idx}: 从 task.json 恢复 (task: {existing_task_id[:20]}...)", flush=True)
-                print(f"  🔍 手动查询: {_make_curl(existing_task_id)}", flush=True)
+                print(f"📦 Scene {scene_idx}: 从 task.json 恢复 (video: {existing_video_id[:20]}...)", flush=True)
+                print(f"  🔍 手动查询: {_make_curl(existing_video_id)}", flush=True)
                 pending.append({
                     "scene_idx": scene_idx,
                     "video_path": video_path,
-                    "task_id": existing_task_id,
+                    "video_id": existing_video_id,
                     "scene_dir": scene_dir,
                     "already_submitted": True,
                 })
@@ -363,18 +363,18 @@ class Idea2VideoPipeline:
         for info in new_submissions:
             scene_idx = info["scene_idx"]
             print(f"  📤 提交 Scene {scene_idx}...", flush=True)
-            task_id = self.video_generator.submit_video(
+            video_id = self.video_generator.submit_video(
                 prompt=info["scene_text"],
                 reference_image_paths=[info["first_frame_url"], info["end_frame_url"]],
                 duration=self.video_duration,
                 width=vw,
                 height=vh,
             )
-            info["task_id"] = task_id
+            info["video_id"] = video_id
             info["already_submitted"] = True
-            _save_task(info["scene_dir"], task_id)
-            print(f"  ✅ Scene {scene_idx} 已提交 (task: {task_id[:20]}...)", flush=True)
-            print(f"  🔍 手动查询: {_make_curl(task_id)}", flush=True)
+            _save_task(info["scene_dir"], video_id)
+            print(f"  ✅ Scene {scene_idx} 已提交 (video: {video_id[:20]}...)", flush=True)
+            print(f"  🔍 手动查询: {_make_curl(video_id)}", flush=True)
 
         # ── Phase 2: Wait for results sequentially ──
         if pending:
@@ -388,7 +388,7 @@ class Idea2VideoPipeline:
             print(f"🎞️  Scene {scene_idx} (keyframes chain)")
             print(f"  ⏳ 等待视频生成完成...", flush=True)
             try:
-                video_output = await self.video_generator.wait_for_video(info["task_id"])
+                video_output = await self.video_generator.wait_for_video(info["video_id"])
                 video_output.save(info["video_path"])
                 print(f"  ✅ Video saved: {info['video_path']}")
             except Exception as e:

@@ -121,6 +121,98 @@ class Idea2VideoPipeline:
         return ref_img_path
 
     # ────────────────────────────────────────────────────
+    # Pre-generate all end frames (i2i with reference image)
+    # ────────────────────────────────────────────────────
+
+    async def _pregenerate_all_end_frames(
+        self,
+        scenes: list,
+        end_frame_prompts: list,
+        reference_image: str,
+        vw: int = 1152,
+        vh: int = 768,
+        end_frame_images: list = None,
+    ) -> dict:
+        """Pre-generate all scene end frames using i2i with reference image.
+
+        Each scene's end frame is generated individually via image-to-image,
+        using the character reference image as the visual anchor. Custom
+        end frames provided by the user take priority.
+
+        Returns a dict mapping scene_idx -> end_frame_path.
+        """
+        print(f"\n{'='*60}")
+        print(f"🖼️  预生成所有场景尾帧 (共 {len(scenes)} 个场景)")
+        print(f"   参考图: {os.path.basename(reference_image) if os.path.exists(reference_image) else reference_image}")
+        print(f"   模式: i2i (基于参考图)")
+        print(f"{'='*60}\n")
+
+        pregenerated = {}
+
+        for scene_idx in range(len(scenes)):
+            scene_dir = os.path.join(self.working_dir, f"scene_{scene_idx}")
+            os.makedirs(scene_dir, exist_ok=True)
+            end_frame_path = os.path.join(scene_dir, "end_frame.png")
+
+            user_ef = (
+                end_frame_images[scene_idx]
+                if end_frame_images and scene_idx < len(end_frame_images) and end_frame_images[scene_idx]
+                else None
+            )
+
+            if user_ef:
+                print(f"📸 [场景 {scene_idx+1}/{len(scenes)}] 使用自定义尾帧: {user_ef}", flush=True)
+                if os.path.exists(user_ef):
+                    dest = os.path.join(scene_dir, "end_frame.png")
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", user_ef,
+                        "-vf", f"scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2",
+                        dest
+                    ], capture_output=True, check=True, timeout=30)
+                    end_frame_path = dest
+                    print(f"  📐 已适配尺寸: {vw}x{vh}", flush=True)
+                pregenerated[scene_idx] = end_frame_path
+                continue
+
+            if os.path.exists(end_frame_path):
+                print(f"📦 [场景 {scene_idx+1}/{len(scenes)}] 尾帧已缓存，跳过生成", flush=True)
+                pregenerated[scene_idx] = end_frame_path
+                continue
+
+            end_frame_prompt = end_frame_prompts[scene_idx]
+            print(f"🖼️  [场景 {scene_idx+1}/{len(scenes)}] 基于参考图生成尾帧 (i2i)...", flush=True)
+            logger.info(f"[EndFrame] Generating {scene_idx+1}/{len(scenes)} via i2i: {end_frame_prompt[:80]}...")
+
+            for attempt in range(3):
+                try:
+                    img_output = await self.image_generator.generate_single_image(
+                        prompt=end_frame_prompt,
+                        reference_image_paths=[reference_image],
+                        size=f"{vw}x{vh}",
+                    )
+                    img_output.save(end_frame_path)
+                    pregenerated[scene_idx] = end_frame_path
+                    print(f"✅ [场景 {scene_idx+1}/{len(scenes)}] 尾帧已保存: {end_frame_path}", flush=True)
+                    logger.info(f"[EndFrame] Scene {scene_idx} saved: {end_frame_path}")
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        wait = (attempt + 1) * 10
+                        logger.warning(f"[EndFrame] Scene {scene_idx} attempt {attempt+1} failed: {e}, retrying in {wait}s...")
+                        print(f"  ⚠️ 第 {attempt+1} 次尝试失败，{wait}s 后重试...", flush=True)
+                        await asyncio.sleep(wait)
+                    else:
+                        logger.error(f"[EndFrame] Scene {scene_idx} failed after 3 attempts: {e}")
+                        print(f"❌ [场景 {scene_idx+1}/{len(scenes)}] 尾帧生成失败: {e}", flush=True)
+                        raise
+
+            if scene_idx < len(scenes) - 1:
+                await asyncio.sleep(2)
+
+        print(f"\n✅ 尾帧预生成全部完成 ({len(pregenerated)}/{len(scenes)})")
+        return pregenerated
+
+    # ────────────────────────────────────────────────────
     # Scene Chaining: sequential generation with frame continuity
     # ────────────────────────────────────────────────────
 
@@ -205,17 +297,19 @@ class Idea2VideoPipeline:
                     # URL，直接使用
                     end_frame_path = user_ef
             else:
-                # 自动生成尾帧（原有逻辑）
-                end_frame_prompt = end_frame_prompts[scene_idx]
                 end_frame_path = os.path.join(scene_dir, "end_frame.png")
-                print(f"  🖼️ 自动生成尾帧...", flush=True)
-                print(f"  Prompt: {end_frame_prompt[:120]}...", flush=True)
-                img_output = await self.image_generator.generate_single_image(
-                    prompt=end_frame_prompt,
-                    size=f"{vw}x{vh}",
-                )
-                img_output.save(end_frame_path)
-                print(f"  ✅ 自动生成完成: {end_frame_path}", flush=True)
+                if os.path.exists(end_frame_path):
+                    print(f"  📦 使用预生成的尾帧: {end_frame_path}", flush=True)
+                else:
+                    end_frame_prompt = end_frame_prompts[scene_idx]
+                    print(f"  🖼️ 自动生成尾帧 (t2i)...", flush=True)
+                    print(f"  Prompt: {end_frame_prompt[:120]}...", flush=True)
+                    img_output = await self.image_generator.generate_single_image(
+                        prompt=end_frame_prompt,
+                        size=f"{vw}x{vh}",
+                    )
+                    img_output.save(end_frame_path)
+                    print(f"  ✅ 自动生成完成: {end_frame_path}", flush=True)
 
             # Step B: Upload both frames to get hosted URLs
             first_frame_url = self.video_generator._resolve_image_ref(current_first_frame)
@@ -454,6 +548,10 @@ class Idea2VideoPipeline:
             for i, p in enumerate(end_frame_prompts):
                 print(f"  End Frame {i}: {p[:100]}...")
             print()
+
+            pregenerated_end_frames = await self._pregenerate_all_end_frames(
+                scenes, end_frame_prompts, character_ref_path, vw, vh, end_frame_images
+            )
 
             all_video_paths = await self._generate_keyframe_chained_scenes(
                 scenes, end_frame_prompts, character_ref_path, vw, vh, end_frame_images

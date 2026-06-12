@@ -538,8 +538,9 @@ class Idea2VideoPipeline:
                     end_frame_prompts = json.load(f)
                 logger.info("End frame prompts loaded from cache.")
             else:
+                character_appearance = self.screenwriter.get_character_appearance(story)
                 end_frame_prompts = self.screenwriter.generate_end_frame_prompts(
-                    scenes, style
+                    scenes, style, character_appearance
                 )
                 with open(end_frames_path, "w") as f:
                     json.dump(end_frame_prompts, f, ensure_ascii=False, indent=2)

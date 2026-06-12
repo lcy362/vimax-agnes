@@ -378,24 +378,70 @@ Output ONLY the image prompt text, no JSON, no explanation.
         logger.info(f"[Screenwriter] Character prompt: {prompt[:100]}...")
         return prompt
 
-    def generate_end_frame_prompts(self, scenes: List[str], style: str) -> List[str]:
+    def get_character_appearance(self, story: str) -> str:
+        """Extract the main protagonist's physical appearance from the story.
+
+        Returns a concise paragraph describing the character's fixed look
+        (hair, face, glasses, body type, clothing, shoes, accessories) that
+        can be injected into end frame prompts for visual consistency.
+        """
+        system_prompt = """\
+Extract ONLY the main protagonist's physical appearance from this story.
+Output a CONCISE paragraph describing their fixed look — include EVERY detail:
+- Hair style and color
+- Facial features (glasses, etc.)
+- Body type and posture
+- Clothing (ALL pieces: coat, dress, pants, etc.)
+- Shoes
+- Any accessories
+
+Write as a single descriptive paragraph, 3-5 sentences. Keep it factual and
+visual — like a police sketch description. Do NOT include their personality,
+dialogue, or story events.
+
+Output ONLY the appearance description text. No JSON, no labels, no markdown.
+"""
+        appearance = self._chat(system_prompt, story).strip()
+        if appearance.startswith("```"):
+            appearance = appearance.split("\n", 1)[1]
+            if appearance.endswith("```"):
+                appearance = appearance[:-3]
+            appearance = appearance.strip()
+        logger.info(f"[Screenwriter] Character appearance: {appearance[:100]}...")
+        print(f"👤 人物外观: {appearance[:80]}...", flush=True)
+        return appearance
+
+    def generate_end_frame_prompts(
+        self, scenes: List[str], style: str, character_appearance: str = ""
+    ) -> List[str]:
         """Generate end-of-scene frame image prompts for keyframes mode.
 
         Each scene's end frame prompt is generated individually to guarantee
-        correct ordering (the LLM cannot be trusted to maintain array index
-        order across multiple scenes in a single batch call).
+        correct ordering. When character_appearance is provided, it is injected
+        into every call to enforce consistent character description across all
+        end frame prompts.
 
         Returns list of prompt strings, one per scene.
         """
-        system_prompt = """\
+        if character_appearance:
+            character_block = f"""
+[CHARACTER APPEARANCE — This must appear verbatim in every prompt]
+{character_appearance}
+
+YOUR PROMPT MUST explicitly include ALL of the above appearance details
+(hair, face, glasses, clothing, shoes) — word for word. Only the pose,
+expression, and environment should change between scenes.
+"""
+        else:
+            character_block = ""
+
+        system_prompt = f"""\
 You are a visual prompt engineer for AI image generation. Generate a STATIC \
 image prompt that represents what this video scene looks like at its very END \
 — the final frozen frame of the video.
-
+{character_block}
 Rules:
 - Describe a STATIC frozen moment, NOT motion or action verbs.
-- The end frame must be visually consistent with the scene description — \
-same character, same outfit, same environment, same lighting, same camera angle.
 - Focus on: pose, facial expression, hand position, body posture, camera angle, \
 lighting, background elements — everything visible in a single frozen frame.
 - Include art style (e.g., "realistic cinematic", "anime").

@@ -1,5 +1,9 @@
 # ViMax-Agnes
 
+> ⚠️ **This project has moved to [agnes-video-generator](https://github.com/lcy362/agnes-video-generator)** — a complete rewrite with cleaner code, better architecture, and new features. All future development happens there.
+>
+> **[:globe_with_meridians: Official Website](https://video.lichuanyang.top) · [:pencil: Blog (中文)](https://lichuanyang.top/posts/22470/) · [:pencil: Blog (English)](https://lichuanyang.top/en/posts/22470/)**
+
 **Free AI Video Generation with Agnes AI — Turn any idea into a multi-scene video with consistent characters.**
 
 > Use Agnes AI's free models (`agnes-video-v2.0`, `agnes-image-2.1-flash`, `agnes-2.0-flash`) to generate videos from text — no GPU, no credit card, just an API key.
@@ -14,7 +18,7 @@ English | [中文](zh.md)
 
 [![The Frog Prince — Demo Video](https://img.shields.io/badge/▶%20Watch%20Demo-FF0050?style=for-the-badge&logo=tiktok&logoColor=white)](https://v.douyin.com/L4F6KdGnD6U/)
 
-<sub>Click to watch on Douyin. More examples: [Girl Dunk](https://v.douyin.com/L4F6KdGnD6U/) · [Beach Dance](https://v.douyin.com/L4F6KdGnD6U/)</sub>
+<sub>Click to watch on Douyin.</sub>
 
 ---
 

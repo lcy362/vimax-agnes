@@ -1,5 +1,9 @@
 # ViMax-Agnes
 
+> ⚠️ **本项目已迁移至 [agnes-video-generator](https://github.com/lcy362/agnes-video-generator)** —— 代码更整洁、架构更优、功能更丰富，后续所有开发将在新仓库进行。
+>
+> **[:globe_with_meridians: 官网](https://video.lichuanyang.top) · [:pencil: 中文博客](https://lichuanyang.top/posts/22470/) · [:pencil: English Blog](https://lichuanyang.top/en/posts/22470/)**
+
 **免费 AI 视频生成 —— 用 Agnes AI 免费模型把任意创意变成多场景视频，角色一致、自动拼接。**
 
 > 使用 Agnes AI 免费模型（`agnes-video-v2.0`、`agnes-image-2.1-flash`、`agnes-2.0-flash`）从文本生成视频 —— 无需 GPU、无需信用卡，只需一个 API Key。
@@ -14,7 +18,7 @@
 
 [![观看演示视频](https://img.shields.io/badge/▶%20观看演示-FF0050?style=for-the-badge&logo=tiktok&logoColor=white)](https://v.douyin.com/L4F6KdGnD6U/)
 
-<sub>点击在抖音观看。更多示例：[女孩扣篮](https://v.douyin.com/L4F6KdGnD6U/) · [海边舞蹈](https://v.douyin.com/L4F6KdGnD6U/)</sub>
+<sub>点击在抖音观看</sub>
 
 ---
 
